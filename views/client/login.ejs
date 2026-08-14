@@ -20,23 +20,7 @@
       </div>
     <% } %>
 
-    <form action="/client/login" method="POST">
-      <div class="form-group">
-        <label for="email" class="form-label">Seu e-mail</label>
-        <input type="email" id="email" name="email" class="form-control" placeholder="cliente@exemplo.com" value="<%= locals.email || '' %>" required autocomplete="email">
-      </div>
 
-      <div class="form-group">
-        <label for="password" class="form-label">Sua senha</label>
-        <input type="password" id="password" name="password" class="form-control" placeholder="Digite sua senha" required autocomplete="current-password">
-      </div>
-
-      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
-        <i class="fa-solid fa-right-to-bracket"></i> Acessar Área do Cliente
-      </button>
-    </form>
-
-    <div class="auth-divider">ou</div>
 
     <button type="button" class="btn-google" data-google-signin="/client/auth/google" id="google-signin-client">
       <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -49,7 +33,7 @@
     </button>
 
     <div class="auth-footer">
-      Não tem conta? <a href="/client/register">Cadastre-se como Cliente</a>
+      <a href="/client/register" style="font-size: 0.9rem;">Não tem conta? Cadastre-se</a>
       <br>
       <a href="/login" style="display: inline-block; margin-top: 0.75rem; font-size: 0.8rem; color: var(--gold-primary);">Área do Barbeiro</a>
     </div>

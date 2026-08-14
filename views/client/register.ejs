@@ -13,38 +13,7 @@
       </div>
     <% } %>
 
-    <form action="/client/register" method="POST">
-      <div class="form-group">
-        <label for="name" class="form-label">Nome Completo</label>
-        <input type="text" id="name" name="name" class="form-control" placeholder="Ex: João da Silva" value="<%= (locals.data && locals.data.name) ? locals.data.name : '' %>" required autocomplete="name">
-      </div>
 
-      <div class="form-group">
-        <label for="email" class="form-label">E-mail</label>
-        <input type="email" id="email" name="email" class="form-control" placeholder="joao@exemplo.com" value="<%= (locals.data && locals.data.email) ? locals.data.email : '' %>" required autocomplete="email">
-      </div>
-
-      <div class="form-group">
-        <label for="phone" class="form-label">Telefone / WhatsApp *</label>
-        <input type="tel" id="phone" name="phone" class="form-control" placeholder="(11) 99999-9999" value="<%= (locals.data && locals.data.phone) ? locals.data.phone : '' %>" required autocomplete="tel">
-      </div>
-
-      <div class="form-group">
-        <label for="password" class="form-label">Senha (mínimo 6 caracteres)</label>
-        <input type="password" id="password" name="password" class="form-control" placeholder="Crie uma senha" required autocomplete="new-password">
-      </div>
-
-      <div class="form-group">
-        <label for="confirmPassword" class="form-label">Confirme a Senha</label>
-        <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" placeholder="Repita a senha" required autocomplete="new-password">
-      </div>
-
-      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
-        <i class="fa-solid fa-user-check"></i> Criar Conta de Cliente
-      </button>
-    </form>
-
-    <div class="auth-divider">ou</div>
 
     <button type="button" class="btn-google" data-google-signin="/client/auth/google" id="google-signin-client-register">
       <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -57,7 +26,7 @@
     </button>
 
     <div class="auth-footer">
-      Já tem conta? <a href="/client/login">Faça Login</a>
+      <a href="/client/login" style="font-size: 0.9rem;">Já tem conta? Faça login</a>
       <br>
       <a href="/login" style="display: inline-block; margin-top: 0.75rem; font-size: 0.8rem; color: var(--gold-primary);">Área do Barbeiro</a>
     </div>

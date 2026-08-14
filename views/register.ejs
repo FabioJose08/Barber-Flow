@@ -15,33 +15,7 @@
       </div>
     <% } %>
 
-    <form action="/register" method="POST">
-      <div class="form-group">
-        <label for="name" class="form-label">Nome Completo / Barbearia</label>
-        <input type="text" id="name" name="name" class="form-control" placeholder="Ex: Barbearia do João" value="<%= (locals.data && locals.data.name) ? locals.data.name : '' %>" required autocomplete="name">
-      </div>
 
-      <div class="form-group">
-        <label for="email" class="form-label">E-mail profissional</label>
-        <input type="email" id="email" name="email" class="form-control" placeholder="barbeiro@exemplo.com" value="<%= (locals.data && locals.data.email) ? locals.data.email : '' %>" required autocomplete="email">
-      </div>
-
-      <div class="form-group">
-        <label for="password" class="form-label">Senha (mínimo 6 caracteres)</label>
-        <input type="password" id="password" name="password" class="form-control" placeholder="Crie uma senha forte" required autocomplete="new-password">
-      </div>
-
-      <div class="form-group">
-        <label for="confirmPassword" class="form-label">Confirme sua senha</label>
-        <input type="password" id="confirmPassword" name="confirmPassword" class="form-control" placeholder="Digite a senha novamente" required autocomplete="new-password">
-      </div>
-
-      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
-        <i class="fa-solid fa-user-plus"></i> Registrar Barbearia
-      </button>
-    </form>
-
-    <div class="auth-divider">ou</div>
 
     <button type="button" class="btn-google" data-google-signin="/auth/google" id="google-signin-barber-register">
       <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -54,7 +28,7 @@
     </button>
 
     <div class="auth-footer">
-      Já possui conta? <a href="/login">Fazer Login</a>
+      <a href="/login" style="font-size: 0.9rem;">Já possui conta? Faça login</a>
     </div>
   </div>
 </div>
