@@ -1,0 +1,113 @@
+<%- include('../partials/header') %>
+
+<style>
+  @keyframes successPop {
+    0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+    70% { transform: scale(1.15) rotate(3deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes goldShimmer {
+    0%, 100% { box-shadow: 0 0 20px rgba(212,175,55,0.3); }
+    50% { box-shadow: 0 0 40px rgba(212,175,55,0.6), 0 0 60px rgba(212,175,55,0.2); }
+  }
+  .success-icon-circle {
+    animation: successPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both, goldShimmer 2s ease-in-out 0.6s infinite;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .slide-up-1 { animation: slideUp 0.5s ease 0.2s both; }
+  .slide-up-2 { animation: slideUp 0.5s ease 0.4s both; }
+  .slide-up-3 { animation: slideUp 0.5s ease 0.6s both; }
+  .slide-up-4 { animation: slideUp 0.5s ease 0.8s both; }
+</style>
+
+<div class="booking-wrapper" style="width: 100%; max-width: 550px; margin: 3rem auto; padding: 0 1rem;">
+  
+  <!-- Success Confirmation Card -->
+  <div class="card card-premium animate-fade-in" style="text-align: center; padding: 3rem 2rem;">
+    
+    <!-- Animated Success Icon -->
+    <div class="success-icon-circle" style="width: 90px; height: 90px; border-radius: 50%; background: var(--bg-finalizado); border: 2px solid var(--color-finalizado); color: var(--color-finalizado); display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem; font-size: 2.75rem;">
+      <i class="fa-solid fa-calendar-check"></i>
+    </div>
+
+    <h1 class="slide-up-1" style="font-family: 'Cinzel'; font-size: 1.85rem; color: var(--gold-primary); margin-bottom: 0.75rem;">
+      Agendamento Realizado! 🎉
+    </h1>
+    
+    <p class="slide-up-2" style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 2rem;">
+      Olá, <strong style="color: var(--text-main);"><%= name %></strong>! 
+      Seu horário na <strong style="color: var(--gold-primary);"><%= config.shop_name %></strong> foi solicitado com sucesso! 
+      Em breve o barbeiro irá confirmar seu agendamento. 💈
+    </p>
+
+    <!-- Details Box -->
+    <div class="slide-up-3" style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.5rem; text-align: left; margin-bottom: 2rem; display: flex; flex-direction: column; gap: 0.85rem;">
+      <h3 style="font-family: 'Cinzel'; font-size: 0.95rem; color: var(--gold-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+        <i class="fa-solid fa-list-check"></i> Resumo do Agendamento
+      </h3>
+      
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem; align-items: center;">
+        <span style="color: var(--text-muted);"><i class="fa-solid fa-tags" style="width: 18px; color: var(--gold-primary);"></i> Serviço:</span>
+        <strong style="color: var(--text-main);"><%= service %></strong>
+      </div>
+      
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem; align-items: center;">
+        <span style="color: var(--text-muted);"><i class="fa-solid fa-calendar-days" style="width: 18px; color: var(--gold-primary);"></i> Data:</span>
+        <% 
+          const parts = date.split('-');
+          const formattedDate = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : date;
+        %>
+        <strong style="color: var(--text-main);"><%= formattedDate %></strong>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem; align-items: center;">
+        <span style="color: var(--text-muted);"><i class="fa-solid fa-clock" style="width: 18px; color: var(--gold-primary);"></i> Horário:</span>
+        <strong style="color: var(--text-main);"><%= time %></strong>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem; align-items: center;">
+        <span style="color: var(--text-muted);"><i class="fa-solid fa-shop" style="width: 18px; color: var(--gold-primary);"></i> Local:</span>
+        <strong style="color: var(--text-main);"><%= config.shop_name %></strong>
+      </div>
+
+      <!-- Status badge -->
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem; align-items: center;">
+        <span style="color: var(--text-muted);"><i class="fa-solid fa-info-circle" style="width: 18px; color: var(--gold-primary);"></i> Status:</span>
+        <span style="background: rgba(212,175,55,0.12); color: var(--gold-primary); border: 1px solid rgba(212,175,55,0.25); border-radius: 20px; padding: 0.2rem 0.75rem; font-size: 0.8rem; font-weight: 600;">
+          <i class="fa-solid fa-clock"></i> Aguardando Confirmação
+        </span>
+      </div>
+    </div>
+
+    <!-- Tip -->
+    <div class="slide-up-3" style="background: rgba(212,175,55,0.05); border: 1px solid rgba(212,175,55,0.15); border-radius: 8px; padding: 1rem; margin-bottom: 2rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; display: flex; gap: 0.75rem; align-items: flex-start; text-align: left;">
+      <i class="fa-solid fa-circle-info" style="color: var(--gold-primary); font-size: 1.1rem; margin-top: 0.1rem; flex-shrink: 0;"></i>
+      <span>
+        Por favor, compareça cerca de 5 a 10 minutos antes do horário. Caso precise cancelar, faça-o com antecedência.
+      </span>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="slide-up-4" style="display: flex; gap: 1rem; flex-direction: column;">
+      <% if (locals.loggedClient) { %>
+        <a href="/client/dashboard" class="btn btn-primary" style="padding: 0.9rem 1rem; font-size: 0.95rem; font-family: 'Cinzel'; letter-spacing: 0.5px;">
+          <i class="fa-solid fa-calendar-days"></i> Ver Meus Agendamentos
+        </a>
+      <% } %>
+      <a href="/book/<%= config.booking_token %>" class="btn btn-outline-gold" style="padding: 0.85rem 1rem; font-size: 0.9rem;">
+        <i class="fa-solid fa-calendar-plus"></i> Novo Agendamento
+      </a>
+      <% if (!locals.loggedClient) { %>
+        <a href="/client/register" style="font-size: 0.8rem; color: var(--gold-primary); text-decoration: underline; text-align: center;">
+          Crie uma conta para acompanhar seus agendamentos →
+        </a>
+      <% } %>
+    </div>
+
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,47 @@
+<%- include('partials/header') %>
+
+<div class="auth-container">
+  <div class="card card-premium auth-card">
+    <div class="auth-logo">
+      <i class="fa-solid fa-scissors" style="font-size: 3rem; color: var(--gold-primary);"></i>
+      <h2>Barber<span>Flow</span></h2>
+      <p>Gestão Inteligente para sua Barbearia</p>
+    </div>
+
+    <% if (locals.error) { %>
+      <div class="alert alert-danger">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span><%= error %></span>
+      </div>
+    <% } %>
+
+    <% if (locals.success) { %>
+      <div class="alert alert-success">
+        <i class="fa-solid fa-circle-check"></i>
+        <span><%= success %></span>
+      </div>
+    <% } %>
+
+    <form action="/login" method="POST">
+      <div class="form-group">
+        <label for="email" class="form-label">E-mail profissional</label>
+        <input type="email" id="email" name="email" class="form-control" placeholder="barbeiro@exemplo.com" value="<%= locals.email || '' %>" required autocomplete="email">
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Senha secreta</label>
+        <input type="password" id="password" name="password" class="form-control" placeholder="Digite sua senha" required autocomplete="current-password">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+        <i class="fa-solid fa-right-to-bracket"></i> Entrar no Painel
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Não tem conta? <a href="/register">Cadastre sua barbearia</a>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

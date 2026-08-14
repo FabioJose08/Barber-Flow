@@ -1,0 +1,47 @@
+<%- include('../partials/header') %>
+
+<div class="auth-container">
+  <div class="card card-premium auth-card">
+    <div class="auth-logo" style="text-align: center; margin-bottom: 1.5rem;">
+      <h2 style="font-size: 2rem; letter-spacing: 0.05em; color: var(--text-main);">Área do Cliente</h2>
+      <p style="color: var(--text-muted); margin-top: 0.4rem;">Faça login para agendar e consultar seus horários.</p>
+    </div>
+
+    <% if (locals.error) { %>
+      <div class="alert alert-danger" style="margin-bottom: 1rem;">
+        <span><%= error %></span>
+      </div>
+    <% } %>
+
+    <% if (locals.success) { %>
+      <div class="alert alert-success">
+        <i class="fa-solid fa-circle-check"></i>
+        <span><%= success %></span>
+      </div>
+    <% } %>
+
+    <form action="/client/login" method="POST">
+      <div class="form-group">
+        <label for="email" class="form-label">Seu e-mail</label>
+        <input type="email" id="email" name="email" class="form-control" placeholder="cliente@exemplo.com" value="<%= locals.email || '' %>" required autocomplete="email">
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Sua senha</label>
+        <input type="password" id="password" name="password" class="form-control" placeholder="Digite sua senha" required autocomplete="current-password">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+        <i class="fa-solid fa-right-to-bracket"></i> Acessar Área do Cliente
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Não tem conta? <a href="/client/register">Cadastre-se como Cliente</a>
+      <br>
+      <a href="/login" style="display: inline-block; margin-top: 0.75rem; font-size: 0.8rem; color: var(--gold-primary);">Área do Barbeiro</a>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

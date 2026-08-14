@@ -1,0 +1,5 @@
+node_modules/
+.env
+database/database.db
+database/database.db-journal
+.gemini/

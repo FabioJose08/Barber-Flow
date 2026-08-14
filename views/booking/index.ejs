@@ -1,0 +1,220 @@
+<%- include('../partials/header') %>
+
+<div class="booking-wrapper" style="width: 100%; max-width: 650px; margin: 2rem auto; padding: 0 1rem;">
+  
+  <!-- Shop Brand Header -->
+  <div class="booking-brand" style="text-align: center; margin-bottom: 2rem;">
+    <h1 style="font-family: 'Cinzel'; font-size: 2.25rem; color: var(--gold-primary); letter-spacing: 1px;">
+      <i class="fa-solid fa-scissors"></i> <%= config.shop_name %>
+    </h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem;">
+      Agende seu horário online em poucos cliques. Atendimento premium e personalizado.
+    </p>
+  </div>
+
+  <!-- Client Area Banner -->
+  <% if (locals.loggedClient) { %>
+    <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); border-radius: 10px; padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; color: var(--color-finalizado);">
+        <i class="fa-solid fa-circle-check" style="font-size: 1.1rem;"></i>
+        <span>Logado como <strong><%= loggedClient.name %></strong> — seus dados serão preenchidos automaticamente.</span>
+      </div>
+      <div style="display: flex; gap: 0.75rem;">
+        <a href="/client/dashboard" style="font-size: 0.8rem; color: var(--gold-primary); text-decoration: underline;">Meus Agendamentos</a>
+        <a href="/logout" style="font-size: 0.8rem; color: var(--text-muted);">Sair</a>
+      </div>
+    </div>
+  <% } else { %>
+    <div style="background: rgba(212,175,55,0.05); border: 1px solid rgba(212,175,55,0.15); border-radius: 10px; padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+      <span style="font-size: 0.875rem; color: var(--text-muted);"><i class="fa-solid fa-user" style="color: var(--gold-primary);"></i> Tem conta de cliente? Faça login para agendar mais rápido.</span>
+      <div style="display: flex; gap: 0.75rem;">
+        <a href="/client/login" class="btn btn-secondary btn-sm">Entrar</a>
+        <a href="/client/register" class="btn btn-primary btn-sm">Cadastrar</a>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="card card-premium animate-fade-in">
+    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+      <h3 class="card-title" style="font-size: 1.15rem;"><i class="fa-solid fa-calendar-check" style="color: var(--gold-primary);"></i> Solicitar Agendamento</h3>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-danger" style="margin-top: 1rem;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span><%= error %></span>
+      </div>
+    <% } %>
+
+    <form id="publicBookingForm" action="/book/<%= config.booking_token %>" method="POST" style="margin-top: 1.5rem;">
+      
+      <!-- 1. Customer Details -->
+      <% if (locals.loggedClient) { %>
+        <!-- Pre-filled hidden fields for logged client -->
+        <input type="hidden" name="customer_name" value="<%= loggedClient.name %>">
+        <input type="hidden" name="customer_phone" value="<%= loggedClient.phone %>">
+        <div style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 150px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;"><i class="fa-solid fa-user"></i> Nome</div>
+            <div style="font-weight: 600; color: var(--text-main);"><%= loggedClient.name %></div>
+          </div>
+          <div style="flex: 1; min-width: 150px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;"><i class="fa-solid fa-phone"></i> Telefone</div>
+            <div style="font-weight: 600; color: var(--text-main);"><%= loggedClient.phone %></div>
+          </div>
+        </div>
+      <% } else { %>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="customer_name" class="form-label">Seu Nome Completo *</label>
+            <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Ex: João Silva" value="<%= data.customer_name || '' %>" required autocomplete="name">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="customer_phone" class="form-label">Telefone (WhatsApp) *</label>
+            <input type="tel" id="customer_phone" name="customer_phone" class="form-control" placeholder="Ex: (11) 99999-9999" value="<%= data.customer_phone || '' %>" required autocomplete="tel">
+          </div>
+        </div>
+      <% } %>
+
+      <!-- 2. Service Selection -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label for="service_id" class="form-label">Selecione o Serviço *</label>
+        <select id="service_id" name="service_id" class="form-control" required>
+          <option value="" disabled selected>-- Escolha um serviço --</option>
+          <% services.forEach(svc => { %>
+            <option value="<%= svc.id %>" <%= data.service_id == svc.id ? 'selected' : '' %>>
+              <%= svc.name %> - R$ <%= svc.price.toFixed(2).replace('.', ',') %> (<%= svc.duration_min %> min)
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- 3. Date Selection -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label for="appointment_date" class="form-label">Escolha a Data *</label>
+        <input type="date" id="appointment_date" name="appointment_date" class="form-control" value="<%= selectedDate %>" min="<%= todayStr %>" required>
+      </div>
+
+      <!-- 4. Available Time Slots (Interactive grid) -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label">Escolha o Horário Disponível *</label>
+        
+        <input type="hidden" id="time_slot" name="time_slot" value="<%= data.time_slot || '' %>" required>
+        
+        <div id="slotsLoader" style="display: none; text-align: center; padding: 1.5rem 0;">
+          <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; color: var(--gold-primary);"></i>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">Buscando horários disponíveis...</p>
+        </div>
+
+        <div id="noSlotsMessage" style="display: none; text-align: center; padding: 1.5rem; background: var(--bg-tertiary); border: 1px dashed var(--border-color); border-radius: 8px;">
+          <i class="fa-solid fa-calendar-xmark" style="font-size: 1.5rem; color: var(--color-cancelado); margin-bottom: 0.5rem;"></i>
+          <h4 style="color: var(--text-main); font-size: 0.95rem;">Nenhum horário disponível para esta data</h4>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Por favor, selecione outro dia no calendário acima.</p>
+        </div>
+
+        <div id="slotsGrid" class="presets-grid" style="grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 0.75rem; max-height: 250px; overflow-y: auto; padding: 0.25rem; border-radius: 8px;">
+          <% if (availableSlots && availableSlots.length > 0) { %>
+            <% availableSlots.forEach(slot => { %>
+              <button type="button" class="preset-btn slot-btn <%= data.time_slot === slot ? 'active' : '' %>" data-slot="<%= slot %>">
+                <%= slot %>
+              </button>
+            <% }) %>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- 5. Optional Notes -->
+      <div class="form-group" style="margin-bottom: 2rem;">
+        <label for="notes" class="form-label">Preferências ou Observações (Opcional)</label>
+        <textarea id="notes" name="notes" class="form-control" rows="3" placeholder="Ex: Cabelo molhado, risco na sobrancelha, etc."><%= data.notes || '' %></textarea>
+      </div>
+
+      <!-- Submit Button -->
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1.1rem; box-shadow: 0 0 15px var(--gold-glow); font-family: 'Cinzel'; font-weight: 700; letter-spacing: 0.5px;">
+        <i class="fa-solid fa-calendar-check"></i> Agendar Atendimento
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- AJAX slots loading script -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const dateInput = document.getElementById('appointment_date');
+    const timeSlotInput = document.getElementById('time_slot');
+    const slotsGrid = document.getElementById('slotsGrid');
+    const slotsLoader = document.getElementById('slotsLoader');
+    const noSlotsMessage = document.getElementById('noSlotsMessage');
+    const form = document.getElementById('publicBookingForm');
+
+    const bookingToken = '<%= config.booking_token %>';
+
+    // Hook slot button clicks
+    const bindSlotButtons = () => {
+      const slotButtons = document.querySelectorAll('.slot-btn');
+      slotButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          slotButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          timeSlotInput.value = btn.getAttribute('data-slot');
+        });
+      });
+    };
+
+    // Load slots from server
+    const fetchAvailableSlots = () => {
+      const date = dateInput.value;
+      if (!date) return;
+
+      slotsGrid.innerHTML = '';
+      slotsGrid.style.display = 'none';
+      noSlotsMessage.style.display = 'none';
+      slotsLoader.style.display = 'block';
+      timeSlotInput.value = '';
+
+      fetch(`/book/${bookingToken}/slots?date=${date}`)
+        .then(res => res.json())
+        .then(data => {
+          slotsLoader.style.display = 'none';
+          if (data && data.slots && data.slots.length > 0) {
+            slotsGrid.style.display = 'grid';
+            data.slots.forEach(slot => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'preset-btn slot-btn';
+              btn.setAttribute('data-slot', slot);
+              btn.textContent = slot;
+              slotsGrid.appendChild(btn);
+            });
+            bindSlotButtons();
+          } else {
+            noSlotsMessage.style.display = 'block';
+          }
+        })
+        .catch(err => {
+          slotsLoader.style.display = 'none';
+          noSlotsMessage.style.display = 'block';
+          console.error('Error fetching time slots:', err);
+        });
+    };
+
+    // Initial binding
+    bindSlotButtons();
+    if (slotsGrid.children.length === 0) {
+      fetchAvailableSlots();
+    }
+
+    // Fetch on date change
+    dateInput.addEventListener('change', fetchAvailableSlots);
+
+    // Form submit validation
+    form.addEventListener('submit', (e) => {
+      if (!timeSlotInput.value) {
+        e.preventDefault();
+        alert('Por favor, selecione um horário disponível para o seu atendimento.');
+      }
+    });
+  });
+</script>
+
+<%- include('../partials/footer') %>

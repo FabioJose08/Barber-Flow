@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BarberFlow - Gestão de Barbearia Premium</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <% if (locals.user && locals.user.role === 'barbeiro') { %>
+      <!-- Mobile Top Navbar (BARBER) -->
+      <header class="mobile-navbar">
+        <div class="brand-logo">
+          <i class="fa-solid fa-scissors"></i> Barber<span>Flow</span>
+        </div>
+        <button class="menu-toggle" aria-label="Toggle Menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </header>
+
+      <!-- Sidebar Mobile Overlay -->
+      <div class="sidebar-overlay"></div>
+
+      <!-- Desktop Sidebar (BARBER) -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="brand-logo">
+            <i class="fa-solid fa-scissors"></i> Barber<span>Flow</span>
+          </div>
+        </div>
+        
+        <nav class="sidebar-nav">
+          <a href="/dashboard" class="nav-item <%= (locals.activePage === 'dashboard') ? 'active' : '' %>">
+            <i class="fa-solid fa-chart-line"></i> Painel
+          </a>
+          <a href="/appointments" class="nav-item <%= (locals.activePage === 'appointments') ? 'active' : '' %>">
+            <i class="fa-solid fa-calendar-days"></i> Agenda
+          </a>
+          <a href="/financial" class="nav-item <%= (locals.activePage === 'financial') ? 'active' : '' %>">
+            <i class="fa-solid fa-coins"></i> Financeiro
+          </a>
+          <a href="/services" class="nav-item <%= (locals.activePage === 'services') ? 'active' : '' %>">
+            <i class="fa-solid fa-scissors"></i> Serviços
+          </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="user-profile">
+            <div class="avatar-circle">
+              <%= locals.user.name.charAt(0).toUpperCase() %>
+            </div>
+            <div class="profile-info">
+              <div class="profile-name"><%= locals.user.name %></div>
+              <div class="profile-role">Dono / Barbeiro</div>
+            </div>
+          </div>
+          <a href="/logout" class="nav-item" style="color: var(--color-cancelado);">
+            <i class="fa-solid fa-right-from-bracket"></i> Sair da Conta
+          </a>
+        </div>
+      </aside>
+
+      <!-- Main Content Wrapper (Closed in footer.ejs) -->
+      <main class="main-content">
+    <% } else if (locals.user && locals.user.role === 'cliente') { %>
+      <!-- Mobile Top Navbar (CLIENT) -->
+      <header class="mobile-navbar">
+        <div class="brand-logo">
+          <i class="fa-solid fa-scissors"></i> Barber<span>Flow</span>
+        </div>
+        <a href="/logout" style="color: var(--color-cancelado); font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem;">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </a>
+      </header>
+
+      <!-- Main Content Wrapper for Client (no sidebar) -->
+      <main class="main-content" style="margin-left: 0; width: 100%;">
+    <% } else { %>
+      <!-- No user logged in: just render content (auth pages, booking) -->
+      <main style="width: 100%; min-height: 100vh;">
+    <% } %>

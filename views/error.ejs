@@ -1,0 +1,27 @@
+<%- include('partials/header') %>
+
+<div class="error-container">
+  <div class="card card-premium" style="max-width: 500px; margin: 0 auto; padding: 3rem 2rem;">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <h1>Ops! Algo deu errado</h1>
+    <p><%= locals.error || 'Ocorreu um erro inesperado ao processar sua solicitação.' %></p>
+    
+    <% if (locals.user) { %>
+      <% if (locals.user.role === 'cliente') { %>
+        <a href="/client/dashboard" class="btn btn-primary">
+          <i class="fa-solid fa-house"></i> Voltar ao Painel do Cliente
+        </a>
+      <% } else { %>
+        <a href="/dashboard" class="btn btn-primary">
+          <i class="fa-solid fa-house"></i> Voltar ao Painel
+        </a>
+      <% } %>
+    <% } else { %>
+      <a href="/login" class="btn btn-primary">
+        <i class="fa-solid fa-right-to-bracket"></i> Voltar ao Login
+      </a>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,143 @@
+<%- include('../partials/header') %>
+
+<div style="padding: 1.5rem; max-width: 800px; margin: 0 auto;">
+
+  <div style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem; border-radius: 18px; background: var(--bg-secondary); border: 1px solid var(--border-color);">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;">
+      <div>
+        <h1 style="font-size: 1.5rem; margin: 0; color: var(--text-main);">Olá, <%= user.name.split(' ')[0] %>!</h1>
+        <p style="margin: 0.5rem 0 0; color: var(--text-muted);">Aqui estão seus agendamentos. Você também pode marcar um novo horário.</p>
+      </div>
+      <a href="/logout" class="btn btn-secondary btn-sm" style="color: var(--color-cancelado);">Sair</a>
+    </div>
+  </div>
+
+  <!-- Flash message -->
+  <% if (locals.success) { %>
+    <div class="alert alert-success animate-fade-in" style="margin-bottom: 1.5rem;">
+      <i class="fa-solid fa-circle-check"></i>
+      <span><%= success %></span>
+    </div>
+  <% } %>
+  <% if (locals.error) { %>
+    <div class="alert alert-danger animate-fade-in" style="margin-bottom: 1.5rem;">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span><%= error %></span>
+    </div>
+  <% } %>
+
+  <!-- Appointments List -->
+  <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 18px; padding: 1.25rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+      <h2 style="font-size: 1.1rem; margin: 0; color: var(--text-main);">Meus Agendamentos</h2>
+      <% if (locals.bookingUrl) { %>
+        <a href="<%= bookingUrl %>" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-calendar-plus"></i> Agendar
+        </a>
+      <% } %>
+    </div>
+
+    <% if (!appointments || appointments.length === 0) { %>
+      <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+        <i class="fa-solid fa-calendar-xmark" style="font-size: 3rem; color: var(--border-color); margin-bottom: 1rem;"></i>
+        <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 0.5rem;">Nenhum agendamento encontrado</h3>
+        <p style="font-size: 0.85rem;">Que tal agendar seu próximo atendimento?</p>
+        <% if (locals.bookingUrl) { %>
+          <a href="<%= bookingUrl %>" class="btn btn-primary" style="margin-top: 1rem;">
+            <i class="fa-solid fa-calendar-plus"></i> Agendar Agora
+          </a>
+        <% } %>
+      </div>
+    <% } else { %>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1rem;">
+        <% appointments.forEach(apt => {
+          const aptDate = new Date(apt.appointment_date.replace('T', ' '));
+          const now = new Date();
+          const isPast = aptDate < now;
+          const canCancel = (apt.status === 'Pendente' || apt.status === 'Agendado') && !isPast;
+        %>
+          <div class="appointment-card" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem 1.25rem; transition: border-color var(--transition-fast);">
+            
+            <!-- Date & Time -->
+            <div style="display: flex; align-items: center; gap: 1rem; min-width: 130px;">
+              <div style="text-align: center; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem 0.75rem; min-width: 60px;">
+                <div style="font-size: 1.25rem; font-weight: 700; color: var(--gold-primary); line-height: 1;">
+                  <%= apt.appointment_date.slice(8,10) %>
+                </div>
+                <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+                  <% const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                     const m = parseInt(apt.appointment_date.slice(5,7)) - 1; %>
+                  <%= months[m] %>
+                </div>
+                <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-main); margin-top: 2px;">
+                  <%= apt.appointment_date.slice(11,16) %>
+                </div>
+              </div>
+            </div>
+
+            <!-- Service Info -->
+            <div style="flex: 1; min-width: 150px;">
+              <div style="font-weight: 600; color: var(--text-main); font-size: 0.95rem; margin-bottom: 0.3rem;">
+                <i class="fa-solid fa-scissors" style="color: var(--gold-primary); font-size: 0.8rem;"></i>
+                <%= apt.service_type %>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">
+                <i class="fa-solid fa-coins" style="width: 14px;"></i>
+                R$ <%= apt.price.toFixed(2).replace('.', ',') %>
+              </div>
+              <% if (apt.notes) { %>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; font-style: italic;">
+                  <i class="fa-solid fa-note-sticky" style="width: 14px;"></i> <%= apt.notes %>
+                </div>
+              <% } %>
+            </div>
+
+            <!-- Status Badge -->
+            <div>
+              <% 
+                const statusColors = {
+                  'Pendente': 'var(--gold-primary)',
+                  'Agendado': 'var(--color-agendado)',
+                  'Em Andamento': 'var(--color-andamento)',
+                  'Finalizado': 'var(--color-finalizado)',
+                  'Cancelado': 'var(--color-cancelado)'
+                };
+                const statusBgs = {
+                  'Pendente': 'rgba(212,175,55,0.12)',
+                  'Agendado': 'var(--bg-agendado)',
+                  'Em Andamento': 'var(--bg-andamento)',
+                  'Finalizado': 'var(--bg-finalizado)',
+                  'Cancelado': 'var(--bg-cancelado)'
+                };
+                const statusIcons = {
+                  'Pendente': 'fa-clock',
+                  'Agendado': 'fa-calendar-check',
+                  'Em Andamento': 'fa-scissors',
+                  'Finalizado': 'fa-circle-check',
+                  'Cancelado': 'fa-circle-xmark'
+                };
+                const color = statusColors[apt.status] || 'var(--text-muted)';
+                const bg = statusBgs[apt.status] || 'var(--bg-tertiary)';
+                const icon = statusIcons[apt.status] || 'fa-question';
+              %>
+              <span style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.78rem; font-weight: 600; background: <%= bg %>; color: <%= color %>; border: 1px solid <%= color %>22;">
+                <i class="fa-solid <%= icon %>"></i> <%= apt.status %>
+              </span>
+            </div>
+
+            <!-- Cancel Action -->
+            <% if (canCancel) { %>
+              <form action="/client/appointments/<%= apt.id %>/cancel" method="POST" onsubmit="return confirm('Tem certeza que deseja cancelar este agendamento?');">
+                <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--color-cancelado); border-color: rgba(239,68,68,0.3);">
+                  <i class="fa-solid fa-xmark"></i> Cancelar
+                </button>
+              </form>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

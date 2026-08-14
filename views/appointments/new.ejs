@@ -1,0 +1,102 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>Novo Agendamento</h1>
+    <p>Agende um novo cliente e defina o serviço.</p>
+  </div>
+  <a href="/appointments" class="btn btn-secondary">
+    <i class="fa-solid fa-arrow-left"></i> Voltar à Agenda
+  </a>
+</div>
+
+<div class="card card-premium" style="max-width: 600px; margin: 0 auto;">
+  <div class="card-header">
+    <h3 class="card-title"><i class="fa-solid fa-calendar-plus"></i> Preencha os Detalhes</h3>
+  </div>
+
+  <% if (locals.error) { %>
+    <div class="alert alert-danger">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span><%= error %></span>
+    </div>
+  <% } %>
+
+  <form action="/appointments" method="POST">
+    <!-- Customer Name -->
+    <div class="form-group">
+      <label for="customer_name" class="form-label">Nome do Cliente *</label>
+      <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Digite o nome completo" value="<%= (locals.data && locals.data.customer_name) ? locals.data.customer_name : '' %>" required autocomplete="off">
+    </div>
+
+    <!-- Customer Phone -->
+    <div class="form-group">
+      <label for="customer_phone" class="form-label">Telefone de Contato *</label>
+      <input type="tel" id="customer_phone" name="customer_phone" class="form-control" placeholder="(DD) 99999-9999" value="<%= (locals.data && locals.data.customer_phone) ? locals.data.customer_phone : '' %>" required autocomplete="off">
+    </div>
+
+    <!-- Service Type with Quick Buttons -->
+    <div class="form-group">
+      <label for="service_type" class="form-label">Tipo de Serviço *</label>
+      <input type="text" id="service_type" name="service_type" class="form-control" placeholder="Ex: Corte Degradê" value="<%= (locals.data && locals.data.service_type) ? locals.data.service_type : '' %>" required autocomplete="off">
+      
+      <!-- Quick Select Presets -->
+      <div class="presets-grid">
+        <% if (locals.services && services.length > 0) { %>
+          <% services.forEach(svc => { %>
+            <button type="button" class="preset-btn" data-preset="<%= svc.name %>" data-price="<%= svc.price %>"><%= svc.name %> (R$<%= Math.round(svc.price) %>)</button>
+          <% }) %>
+        <% } else { %>
+          <button type="button" class="preset-btn" data-preset="Corte" data-price="40">Corte (R$40)</button>
+          <button type="button" class="preset-btn" data-preset="Barba" data-price="30">Barba (R$30)</button>
+          <button type="button" class="preset-btn" data-preset="Pigmentação" data-price="25">Pigmentação (R$25)</button>
+          <button type="button" class="preset-btn" data-preset="Corte & Barba" data-price="65">Combo (R$65)</button>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Price -->
+    <div class="form-group">
+      <label for="price" class="form-label">Preço Cobrado *</label>
+      <div class="input-prefix-wrapper">
+        <span class="input-prefix">R$</span>
+        <input type="number" id="price" name="price" class="form-control" placeholder="0,00" step="0.01" min="0" value="<%= (locals.data && locals.data.price) ? locals.data.price : '' %>" required>
+      </div>
+    </div>
+
+    <!-- Appointment Date/Time -->
+    <div class="form-group">
+      <label for="appointment_date" class="form-label">Data e Hora do Atendimento *</label>
+      <input type="datetime-local" id="appointment_date" name="appointment_date" class="form-control" value="<%= locals.currentLocalDateTime || (locals.data && locals.data.appointment_date) || '' %>" required>
+    </div>
+
+    <!-- Status (Default: Agendado) -->
+    <div class="form-group">
+      <label for="status" class="form-label">Status Inicial *</label>
+      <select id="status" name="status" class="form-control" required>
+        <option value="Agendado" <%= (locals.data && locals.data.status === 'Agendado') ? 'selected' : 'selected' %>>Agendado</option>
+        <option value="Em Andamento" <%= (locals.data && locals.data.status === 'Em Andamento') ? 'selected' : '' %>>Em Andamento</option>
+        <option value="Finalizado" <%= (locals.data && locals.data.status === 'Finalizado') ? 'selected' : '' %>>Finalizado</option>
+        <option value="Cancelado" <%= (locals.data && locals.data.status === 'Cancelado') ? 'selected' : '' %>>Cancelado</option>
+      </select>
+    </div>
+
+    <!-- Notes -->
+    <div class="form-group">
+      <label for="notes" class="form-label">Observações / Preferências (Opcional)</label>
+      <textarea id="notes" name="notes" class="form-control" placeholder="Ex: Risco na sobrancelha, cabelo molhado, etc."><%= (locals.data && locals.data.notes) ? locals.data.notes : '' %></textarea>
+    </div>
+
+    <!-- Actions -->
+    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+      <button type="submit" class="btn btn-primary" style="flex: 1;">
+        <i class="fa-solid fa-floppy-disk"></i> Salvar Agendamento
+      </button>
+      <a href="/appointments" class="btn btn-secondary" style="flex: 1; text-align: center;">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

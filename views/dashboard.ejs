@@ -1,0 +1,253 @@
+<%- include('partials/header') %>
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>Olá, <%= user.name %>!</h1>
+    <p>Bem-vindo ao painel da sua barbearia. Veja o resumo de hoje.</p>
+  </div>
+  <a href="/appointments/new" class="btn btn-primary">
+    <i class="fa-solid fa-plus"></i> Novo Agendamento
+  </a>
+</div>
+
+<!-- Client Online Booking Link Card -->
+<div class="card card-premium booking-link-card" style="margin-bottom: 2rem;">
+  <div class="booking-link-content">
+    <div class="booking-link-text">
+      <h3><i class="fa-solid fa-link" style="color: var(--gold-primary);"></i> Link de Agendamento do Cliente</h3>
+      <p>Compartilhe este link com seus clientes para que eles agendem seus próprios horários online:</p>
+    </div>
+    <div class="booking-link-input-group" style="display: flex; gap: 0.5rem; margin-top: 0.75rem; align-items: center;">
+      <input type="text" id="bookingUrlInput" class="form-control" value="<%= bookingUrl %>" readonly style="flex-grow: 1; background: var(--bg-tertiary); border-color: var(--border-color); color: var(--gold-primary); font-weight: 500;">
+      <button type="button" class="btn btn-primary" id="copyBookingUrlBtn" style="white-space: nowrap;">
+        <i class="fa-solid fa-copy"></i> <span>Copiar Link</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Key Statistics Cards -->
+<div class="stats-grid">
+  <!-- Today's Client Count -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="border-color: var(--gold-primary);">
+      <i class="fa-solid fa-user-group"></i>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Clientes Hoje</span>
+      <span class="stat-value"><%= todayCount %></span>
+    </div>
+  </div>
+
+  <!-- Today's Earnings -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="color: var(--color-finalizado); border-color: var(--color-finalizado);">
+      <i class="fa-solid fa-coins"></i>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Faturamento Hoje</span>
+      <span class="stat-value">R$ <%= dailyRevenue.toFixed(2).replace('.', ',') %></span>
+    </div>
+  </div>
+
+  <!-- Overall Earnings -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="color: var(--gold-primary); border-color: var(--gold-primary);">
+      <i class="fa-solid fa-sack-dollar"></i>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Faturamento Acumulado</span>
+      <span class="stat-value">R$ <%= totalRevenue.toFixed(2).replace('.', ',') %></span>
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard Layout Grid -->
+<div class="dashboard-layout">
+  <!-- Left Side: Upcoming Appointments -->
+  <div class="card card-premium">
+    <div class="card-header">
+      <h3 class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Atendimentos Ativos</h3>
+      <a href="/appointments" class="btn btn-outline-gold btn-sm">Ver Todos</a>
+    </div>
+
+    <% if (upcomingAppointments.length === 0) { %>
+      <div class="empty-state">
+        <i class="fa-solid fa-calendar-check"></i>
+        <h3>Sem próximos agendamentos ativos</h3>
+        <p>Não há atendimentos agendados, pendentes ou em andamento no momento.</p>
+      </div>
+    <% } else { %>
+      <div class="appointments-list">
+        <% upcomingAppointments.forEach(appointment => { %>
+          <% 
+            let itemClass = 'agendado';
+            if (appointment.status === 'Em Andamento') itemClass = 'andamento';
+            else if (appointment.status === 'Pendente') itemClass = 'pendente';
+            else if (appointment.status === 'Finalizado') itemClass = 'finalizado';
+            else if (appointment.status === 'Cancelado') itemClass = 'cancelado';
+          %>
+          <div class="appointment-item <%= itemClass %>">
+            <div class="appointment-details">
+              <!-- Time display -->
+              <div class="appointment-time-box">
+                <% 
+                  const apptDate = new Date(appointment.appointment_date);
+                  const isValidDate = !isNaN(apptDate.getTime());
+                  const formattedTime = isValidDate ? apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                  const formattedDate = isValidDate ? apptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'Data Inválida';
+                %>
+                <span class="time"><%= formattedTime %></span>
+                <span class="date"><%= formattedDate %></span>
+              </div>
+              
+              <!-- Customer metadata -->
+              <div class="client-meta">
+                <div class="client-name">
+                  <%= appointment.customer_name %>
+                  
+                  <% if (appointment.status === 'Pendente') { %>
+                    <span class="badge badge-pendente" style="background-color: rgba(212, 175, 55, 0.15); color: var(--gold-primary);">
+                      <i class="fa-solid fa-bell fa-shake"></i> Pendente Online
+                    </span>
+                  <% } else if (appointment.status === 'Agendado') { %>
+                    <span class="badge badge-agendado">
+                      <i class="fa-solid fa-calendar"></i> <%= appointment.status %>
+                    </span>
+                  <% } else { %>
+                    <span class="badge badge-andamento">
+                      <i class="fa-solid fa-spinner fa-spin"></i> <%= appointment.status %>
+                    </span>
+                  <% } %>
+                </div>
+                
+                <div class="client-info-sub">
+                  <span><i class="fa-solid fa-phone"></i> <%= appointment.customer_phone %></span>
+                  <span><i class="fa-solid fa-tags"></i> <%= appointment.service_type %></span>
+                </div>
+
+                <% if (appointment.notes) { %>
+                  <div class="client-notes">
+                    <i class="fa-solid fa-note-sticky"></i> <%= appointment.notes %>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+
+            <!-- Price -->
+            <div class="appointment-price">
+              R$ <%= appointment.price.toFixed(2).replace('.', ',') %>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div class="appointment-actions">
+              <% if (appointment.status === 'Pendente') { %>
+                <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                  <input type="hidden" name="status" value="Agendado">
+                  <button type="submit" class="btn btn-primary btn-sm" title="Confirmar Agendamento" style="background-color: var(--color-agendado); border-color: var(--color-agendado); color: var(--text-main);">
+                    <i class="fa-solid fa-thumbs-up"></i> Confirmar
+                  </button>
+                </form>
+                <button type="button" class="btn btn-primary btn-sm btn-conclude" 
+                        data-id="<%= appointment.id %>" 
+                        data-name="<%= appointment.customer_name %>" 
+                        data-service="<%= appointment.service_type %>" 
+                        data-price="<%= appointment.price %>"
+                        title="Concluir Atendimento" style="background-color: var(--color-finalizado); border-color: var(--color-finalizado); color: var(--text-dark);">
+                  <i class="fa-solid fa-check"></i> Concluir
+                </button>
+                <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                  <input type="hidden" name="status" value="Cancelado">
+                  <button type="submit" class="btn btn-secondary btn-sm btn-icon-only" title="Recusar Agendamento" style="color: var(--color-cancelado);">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </form>
+              <% } else if (appointment.status === 'Agendado') { %>
+                <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                  <input type="hidden" name="status" value="Em Andamento">
+                  <button type="submit" class="btn btn-primary btn-sm" title="Iniciar Serviço" style="background-color: var(--color-andamento); border-color: var(--color-andamento); color: var(--text-dark);">
+                    <i class="fa-solid fa-play"></i> Iniciar
+                  </button>
+                </form>
+                <button type="button" class="btn btn-primary btn-sm btn-conclude" 
+                        data-id="<%= appointment.id %>" 
+                        data-name="<%= appointment.customer_name %>" 
+                        data-service="<%= appointment.service_type %>" 
+                        data-price="<%= appointment.price %>"
+                        title="Concluir Atendimento" style="background-color: var(--color-finalizado); border-color: var(--color-finalizado); color: var(--text-dark);">
+                  <i class="fa-solid fa-check"></i> Concluir
+                </button>
+                <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                  <input type="hidden" name="status" value="Cancelado">
+                  <button type="submit" class="btn btn-secondary btn-sm btn-icon-only" title="Cancelar Agendamento" style="color: var(--color-cancelado);">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </form>
+              <% } else if (appointment.status === 'Em Andamento') { %>
+                <button type="button" class="btn btn-primary btn-sm btn-conclude" 
+                        data-id="<%= appointment.id %>" 
+                        data-name="<%= appointment.customer_name %>" 
+                        data-service="<%= appointment.service_type %>" 
+                        data-price="<%= appointment.price %>"
+                        title="Concluir Atendimento" style="background-color: var(--color-finalizado); border-color: var(--color-finalizado); color: var(--text-dark);">
+                  <i class="fa-solid fa-check"></i> Concluir
+                </button>
+                <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                  <input type="hidden" name="status" value="Cancelado">
+                  <button type="submit" class="btn btn-secondary btn-sm btn-icon-only" title="Cancelar Agendamento" style="color: var(--color-cancelado);">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </form>
+              <% } %>
+              <a href="/appointments/<%= appointment.id %>/edit" class="btn btn-secondary btn-sm btn-icon-only" title="Editar"><i class="fa-solid fa-pen"></i></a>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Right Side: Status Tracker Counts summary -->
+  <div class="card card-premium animate-fade-in">
+    <div class="card-header">
+      <h3 class="card-title"><i class="fa-solid fa-list-check"></i> Resumo de Status</h3>
+    </div>
+    
+    <div class="status-tracker">
+      <div class="status-box pendente">
+        <div class="status-box-value" style="color: var(--gold-primary);"><%= statusStats['Pendente'] %></div>
+        <div class="status-box-label">Pendentes</div>
+      </div>
+
+      <div class="status-box agendado">
+        <div class="status-box-value" style="color: var(--color-agendado);"><%= statusStats['Agendado'] %></div>
+        <div class="status-box-label">Agendados</div>
+      </div>
+
+      <div class="status-box andamento">
+        <div class="status-box-value" style="color: var(--color-andamento);"><%= statusStats['Em Andamento'] %></div>
+        <div class="status-box-label">Em Andamento</div>
+      </div>
+
+      <div class="status-box finalizado">
+        <div class="status-box-value" style="color: var(--color-finalizado);"><%= statusStats['Finalizado'] %></div>
+        <div class="status-box-label">Finalizados</div>
+      </div>
+
+      <div class="status-box cancelado">
+        <div class="status-box-value" style="color: var(--color-cancelado);"><%= statusStats['Cancelado'] %></div>
+        <div class="status-box-label">Cancelados</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; text-align: center;">
+      <a href="/appointments" class="btn btn-primary" style="width: 100%;">
+        <i class="fa-solid fa-calendar-days"></i> Ver Agenda Completa
+      </a>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/finalize_modal') %>
+
+<%- include('partials/footer') %>

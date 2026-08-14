@@ -1,0 +1,258 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>Agenda de Clientes</h1>
+    <p>Gerencie todos os atendimentos marcados e finalizados.</p>
+  </div>
+  <a href="/appointments/new" class="btn btn-primary">
+    <i class="fa-solid fa-plus"></i> Novo Agendamento
+  </a>
+</div>
+
+<!-- Filters Bar -->
+<form action="/appointments" method="GET" class="filter-bar">
+  <!-- Search input -->
+  <div class="filter-group">
+    <label for="search" class="form-label">Buscar por Cliente</label>
+    <div style="position: relative; display: flex; align-items: center;">
+      <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 1rem; color: var(--text-muted);"></i>
+      <input type="text" id="search" name="search" class="form-control" placeholder="Digite o nome..." value="<%= filters.search %>" style="padding-left: 2.25rem;">
+    </div>
+  </div>
+
+  <!-- Status filter -->
+  <div class="filter-group">
+    <label for="status_filter" class="form-label">Filtrar Status</label>
+    <select id="status_filter" name="status_filter" class="form-control">
+      <option value="all" <%= filters.status_filter === 'all' ? 'selected' : '' %>>Todos os Status</option>
+      <option value="Pendente" <%= filters.status_filter === 'Pendente' ? 'selected' : '' %>>Pendente</option>
+      <option value="Agendado" <%= filters.status_filter === 'Agendado' ? 'selected' : '' %>>Agendado</option>
+      <option value="Em Andamento" <%= filters.status_filter === 'Em Andamento' ? 'selected' : '' %>>Em Andamento</option>
+      <option value="Finalizado" <%= filters.status_filter === 'Finalizado' ? 'selected' : '' %>>Finalizado</option>
+      <option value="Cancelado" <%= filters.status_filter === 'Cancelado' ? 'selected' : '' %>>Cancelado</option>
+    </select>
+  </div>
+
+  <!-- Date filter quick choice -->
+  <div class="filter-group">
+    <label for="date_filter_select" class="form-label">Filtrar Período</label>
+    <select id="date_filter_select" name="date_filter" class="form-control">
+      <option value="all" <%= filters.date_filter === 'all' ? 'selected' : '' %>>Qualquer Data</option>
+      <option value="today" <%= filters.date_filter === 'today' ? 'selected' : '' %>>Hoje</option>
+      <option value="tomorrow" <%= filters.date_filter === 'tomorrow' ? 'selected' : '' %>>Amanhã</option>
+      <option value="week" <%= filters.date_filter === 'week' ? 'selected' : '' %>>Próximos 7 Dias</option>
+      <option value="custom" <%= (!['all','today','tomorrow','week'].includes(filters.date_filter)) ? 'selected' : '' %>>Escolher Data...</option>
+    </select>
+  </div>
+
+  <!-- Date specific input (conditionally displayed by JS) -->
+  <div class="filter-group" id="custom_date_wrapper">
+    <input type="date" id="custom_date_filter" name="custom_date_filter_val" class="form-control" 
+           value="<%= (!['all','today','tomorrow','week'].includes(filters.date_filter)) ? filters.date_filter : '' %>"
+           style="display: none;">
+  </div>
+
+  <!-- Filter Action Buttons -->
+  <div class="filter-actions">
+    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-filter"></i> Filtrar</button>
+    <a href="/appointments" class="btn btn-secondary" title="Limpar Filtros"><i class="fa-solid fa-rotate-left"></i> Limpar</a>
+  </div>
+</form>
+
+<!-- Appointments List -->
+<div class="card card-premium">
+  <div class="card-header">
+    <h3 class="card-title"><i class="fa-solid fa-calendar-check"></i> Atendimentos</h3>
+    <span class="badge badge-agendado" style="font-family: inherit;"><%= appointments.length %> encontrado(s)</span>
+  </div>
+
+  <% if (appointments.length === 0) { %>
+    <div class="empty-state">
+      <i class="fa-solid fa-scissors"></i>
+      <h3>Nenhum agendamento encontrado</h3>
+      <p>Nenhum agendamento corresponde aos filtros aplicados.</p>
+    </div>
+  <% } else { %>
+    <div class="appointments-list">
+      <% appointments.forEach(appointment => { %>
+        <% 
+          let statusClass = 'agendado';
+          if (appointment.status === 'Em Andamento') statusClass = 'andamento';
+          else if (appointment.status === 'Pendente') statusClass = 'pendente';
+          else if (appointment.status === 'Finalizado') statusClass = 'finalizado';
+          else if (appointment.status === 'Cancelado') statusClass = 'cancelado';
+        %>
+        <div class="appointment-item <%= statusClass %>">
+          <div class="appointment-details">
+            <!-- DateTime display box -->
+            <div class="appointment-time-box">
+              <% 
+                const apptDate = new Date(appointment.appointment_date);
+                const isValidDate = !isNaN(apptDate.getTime());
+                const formattedTime = isValidDate ? apptDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                const formattedDate = isValidDate ? apptDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'Data Inválida';
+              %>
+              <span class="time"><%= formattedTime %></span>
+              <span class="date"><%= formattedDate %></span>
+            </div>
+            
+            <!-- Customer info -->
+            <div class="client-meta">
+              <div class="client-name">
+                <%= appointment.customer_name %>
+                
+                <% if (appointment.status === 'Pendente') { %>
+                  <span class="badge badge-pendente" style="background-color: rgba(212, 175, 55, 0.15); color: var(--gold-primary);"><i class="fa-solid fa-bell"></i> <%= appointment.status %></span>
+                <% } else if (appointment.status === 'Agendado') { %>
+                  <span class="badge badge-agendado"><i class="fa-solid fa-calendar"></i> <%= appointment.status %></span>
+                <% } else if (appointment.status === 'Em Andamento') { %>
+                  <span class="badge badge-andamento"><i class="fa-solid fa-spinner fa-spin"></i> <%= appointment.status %></span>
+                <% } else if (appointment.status === 'Finalizado') { %>
+                  <span class="badge badge-finalizado"><i class="fa-solid fa-circle-check"></i> <%= appointment.status %></span>
+                <% } else if (appointment.status === 'Cancelado') { %>
+                  <span class="badge badge-cancelado"><i class="fa-solid fa-circle-xmark"></i> <%= appointment.status %></span>
+                <% } %>
+              </div>
+              
+              <div class="client-info-sub">
+                <span><i class="fa-solid fa-phone"></i> <%= appointment.customer_phone %></span>
+                <span><i class="fa-solid fa-tags"></i> <%= appointment.service_type %></span>
+              </div>
+
+              <% if (appointment.notes) { %>
+                <div class="client-notes">
+                  <i class="fa-solid fa-note-sticky"></i> <%= appointment.notes %>
+                </div>
+              <% } %>
+            </div>
+          </div>
+
+          <!-- Price -->
+          <div class="appointment-price">
+            R$ <%= appointment.price.toFixed(2).replace('.', ',') %>
+          </div>
+
+          <!-- Actions -->
+          <div class="appointment-actions">
+            <!-- Quick status transitions -->
+            <% if (appointment.status === 'Pendente') { %>
+              <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                <input type="hidden" name="status" value="Agendado">
+                <button type="submit" class="btn btn-primary btn-sm" title="Confirmar Agendamento" style="background-color: var(--color-agendado); border-color: var(--color-agendado); color: var(--text-main);">
+                  <i class="fa-solid fa-thumbs-up"></i> Confirmar
+                </button>
+              </form>
+              <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                <input type="hidden" name="status" value="Cancelado">
+                <button type="submit" class="btn btn-secondary btn-sm btn-icon-only" title="Recusar Agendamento" style="color: var(--color-cancelado);">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </form>
+            <% } else if (appointment.status === 'Agendado') { %>
+              <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                <input type="hidden" name="status" value="Em Andamento">
+                <button type="submit" class="btn btn-primary btn-sm" title="Iniciar Atendimento" style="background-color: var(--color-andamento); border-color: var(--color-andamento); color: var(--text-dark);">
+                  <i class="fa-solid fa-play"></i> Iniciar
+                </button>
+              </form>
+              <button type="button" class="btn btn-primary btn-sm btn-conclude" 
+                      data-id="<%= appointment.id %>" 
+                      data-name="<%= appointment.customer_name %>" 
+                      data-service="<%= appointment.service_type %>" 
+                      data-price="<%= appointment.price %>"
+                      title="Concluir Atendimento" style="background-color: var(--color-finalizado); border-color: var(--color-finalizado); color: var(--text-dark);">
+                <i class="fa-solid fa-check"></i> Concluir
+              </button>
+              <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                <input type="hidden" name="status" value="Cancelado">
+                <button type="submit" class="btn btn-secondary btn-sm btn-icon-only" title="Cancelar Agendamento" style="color: var(--color-cancelado);">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </form>
+            <% } else if (appointment.status === 'Em Andamento') { %>
+              <button type="button" class="btn btn-primary btn-sm btn-conclude" 
+                      data-id="<%= appointment.id %>" 
+                      data-name="<%= appointment.customer_name %>" 
+                      data-service="<%= appointment.service_type %>" 
+                      data-price="<%= appointment.price %>"
+                      title="Concluir Atendimento" style="background-color: var(--color-finalizado); border-color: var(--color-finalizado); color: var(--text-dark);">
+                <i class="fa-solid fa-check"></i> Concluir
+              </button>
+              <form action="/appointments/<%= appointment.id %>/status" method="POST" class="quick-status-form" style="display: inline-block;">
+                <input type="hidden" name="status" value="Cancelado">
+                <button type="submit" class="btn btn-secondary btn-sm btn-icon-only" title="Cancelar Agendamento" style="color: var(--color-cancelado);">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </form>
+            <% } %>
+
+            <!-- Edit link -->
+            <a href="/appointments/<%= appointment.id %>/edit" class="btn btn-secondary btn-sm btn-icon-only" title="Editar"><i class="fa-solid fa-pen"></i></a>
+            
+            <!-- Delete action (requires client-side confirm) -->
+            <form action="/appointments/<%= appointment.id %>/delete" method="POST" class="delete-confirm" data-client-name="<%= appointment.customer_name %>" style="display: inline-block;">
+              <button type="submit" class="btn btn-danger btn-sm btn-icon-only" title="Excluir"><i class="fa-solid fa-trash-can"></i></button>
+            </form>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<!-- Embedded JS helper specific to filters -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const dateSelect = document.getElementById('date_filter_select');
+    const customDateInput = document.getElementById('custom_date_filter');
+
+    if (dateSelect && customDateInput) {
+      const toggleCustomDate = () => {
+        if (dateSelect.value === 'custom') {
+          customDateInput.style.display = 'block';
+          // set default date if empty
+          if (!customDateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            customDateInput.value = today;
+          }
+        } else {
+          customDateInput.style.display = 'none';
+        }
+      };
+
+      dateSelect.addEventListener('change', () => {
+        toggleCustomDate();
+        if (dateSelect.value !== 'custom') {
+          dateSelect.closest('form').submit();
+        }
+      });
+
+      customDateInput.addEventListener('change', () => {
+        // Update date_filter option value to the custom date string before submitting
+        dateSelect.value = customDateInput.value;
+        dateSelect.closest('form').submit();
+      });
+
+      // Execute on page load
+      toggleCustomDate();
+      
+      // If the URL filters contain a date value not in standard selects, set to 'custom' and set customDateInput value
+      const val = dateSelect.value;
+      if (val && !['all', 'today', 'tomorrow', 'week'].includes(val)) {
+        // It's a custom date string
+        const option = document.createElement('option');
+        option.value = val;
+        option.text = 'Data Escolhida (' + val.split('-').reverse().join('/') + ')';
+        option.selected = true;
+        dateSelect.appendChild(option);
+        customDateInput.value = val;
+        customDateInput.style.display = 'block';
+      }
+    }
+  });
+</script>
+
+<%- include('../partials/finalize_modal') %>
+
+<%- include('../partials/footer') %>

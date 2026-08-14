@@ -1,0 +1,222 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>Relatório Financeiro</h1>
+    <p>Acompanhe a receita gerada pelos agendamentos finalizados. Lançamentos automáticos integrados.</p>
+  </div>
+  
+  <!-- Period Filter Form -->
+  <form action="/financial" method="GET" class="period-filter-form" style="display: flex; gap: 0.5rem; align-items: center;">
+    <select name="period" id="financialPeriodSelect" class="form-control" style="width: auto;">
+      <option value="today" <%= period === 'today' ? 'selected' : '' %>>Hoje</option>
+      <option value="week" <%= period === 'week' ? 'selected' : '' %>>Esta Semana</option>
+      <option value="month" <%= period === 'month' ? 'selected' : '' %>>Este Mês</option>
+      <option value="custom" <%= period === 'custom' ? 'selected' : '' %>>Personalizado...</option>
+    </select>
+    
+    <div id="financialCustomDates" style="display: <%= period === 'custom' ? 'flex' : 'none' %>; gap: 0.5rem; align-items: center;">
+      <input type="date" name="start" class="form-control" value="<%= filterStart %>" style="width: auto;">
+      <span style="color: var(--text-muted);">até</span>
+      <input type="date" name="end" class="form-control" value="<%= filterEnd %>" style="width: auto;">
+    </div>
+    
+    <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.65rem 1rem;">
+      <i class="fa-solid fa-rotate"></i> Atualizar
+    </button>
+  </form>
+</div>
+
+<!-- Financial Summary Cards -->
+<div class="stats-grid" style="margin-bottom: 2rem;">
+  <!-- Today -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="color: var(--color-finalizado); border-color: var(--color-finalizado);">
+      <i class="fa-solid fa-calendar-day"></i>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Hoje</span>
+      <span class="stat-value">R$ <%= todayRev.total.toFixed(2).replace('.', ',') %></span>
+      <span class="stat-subtext" style="font-size: 0.8rem; color: var(--text-muted);"><%= todayRev.count %> cortes finalizados</span>
+    </div>
+  </div>
+
+  <!-- Weekly -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="color: var(--color-agendado); border-color: var(--color-agendado);">
+      <i class="fa-solid fa-calendar-week"></i>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Esta Semana</span>
+      <span class="stat-value">R$ <%= weekRev.total.toFixed(2).replace('.', ',') %></span>
+      <span class="stat-subtext" style="font-size: 0.8rem; color: var(--text-muted);"><%= weekRev.count %> finalizados</span>
+    </div>
+  </div>
+
+  <!-- Monthly -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="color: var(--color-andamento); border-color: var(--color-andamento);">
+      <i class="fa-solid fa-calendar-days"></i>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Este Mês</span>
+      <span class="stat-value">R$ <%= monthRev.total.toFixed(2).replace('.', ',') %></span>
+      <span class="stat-subtext" style="font-size: 0.8rem; color: var(--text-muted);"><%= monthRev.count %> finalizados</span>
+    </div>
+  </div>
+
+  <!-- Total Accumulate -->
+  <div class="card stat-card">
+    <div class="stat-icon" style="color: var(--gold-primary); border-color: var(--gold-primary);">
+      <i class="fa-solid fa-sack-dollar"></i>
+    </div>
+    <div class="stat-details">
+      <span class="stat-label">Acumulado Total</span>
+      <span class="stat-value">R$ <%= totalRev.total.toFixed(2).replace('.', ',') %></span>
+      <span class="stat-subtext" style="font-size: 0.8rem; color: var(--text-muted);"><%= totalRev.count %> cortes no total</span>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-layout" style="align-items: stretch; gap: 2rem;">
+  
+  <!-- Left Side: Mini Chart & Service Breakdown -->
+  <div style="flex: 1 1 35%; display: flex; flex-direction: column; gap: 2rem;">
+    
+    <!-- Mini daily chart -->
+    <div class="card card-premium">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fa-solid fa-chart-bar"></i> Faturamento Diário</h3>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Últimos 7 dias</span>
+      </div>
+      
+      <!-- Chart visualization container -->
+      <div class="financial-chart-container" style="display: flex; height: 160px; align-items: flex-end; justify-content: space-between; padding-top: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.5rem;">
+        <% chartData.forEach(d => { %>
+          <% 
+            const percentage = (d.total / chartMax) * 100;
+            const barHeight = Math.max(percentage, d.total > 0 ? 5 : 0); // min height if has revenue
+          %>
+          <div class="chart-bar-wrapper" style="display: flex; flex-direction: column; align-items: center; flex-grow: 1; width: 14%; height: 100%; position: relative;" title="<%= d.label %>: R$ <%= d.total.toFixed(2).replace('.', ',') %>">
+            <div class="chart-bar-value" style="font-size: 0.7rem; color: var(--gold-primary); position: absolute; top: -1.2rem; display: none; font-weight: bold;">R$<%= Math.round(d.total) %></div>
+            <div class="chart-bar" style="background: linear-gradient(180deg, var(--gold-primary), var(--gold-dark)); border-radius: 4px 4px 0 0; width: 60%; height: <%= barHeight %>%; transition: height 0.5s ease; box-shadow: 0 0 10px rgba(212,175,55,0.15);"></div>
+            <span class="chart-bar-label" style="font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem; font-weight: 500;"><%= d.label.slice(0, 3) %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- Service Breakdown -->
+    <div class="card card-premium">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fa-solid fa-pie-chart"></i> Faturamento por Serviço</h3>
+      </div>
+      
+      <% if (serviceBreakdown.length === 0) { %>
+        <div class="empty-state" style="padding: 1.5rem;">
+          <p>Nenhuma receita registrada neste período.</p>
+        </div>
+      <% } else { %>
+        <div class="service-breakdown-list" style="display: flex; flex-direction: column; gap: 1rem; padding-top: 0.5rem;">
+          <% 
+            // Calculate total for breakdown period to calculate percentages
+            const breakdownTotal = serviceBreakdown.reduce((sum, item) => sum + item.total, 0) || 1;
+          %>
+          <% serviceBreakdown.forEach(item => { %>
+            <% const pct = (item.total / breakdownTotal) * 100; %>
+            <div class="breakdown-item">
+              <div style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.35rem;">
+                <span style="font-weight: 600; color: var(--text-main);"><%= item.service_type %> <small style="color: var(--text-muted); font-weight: normal;">(x<%= item.count %>)</small></span>
+                <span style="color: var(--gold-primary); font-weight: 500;">R$ <%= item.total.toFixed(2).replace('.', ',') %> (<%= pct.toFixed(0) %>%)</span>
+              </div>
+              <div class="progress-bar-bg" style="background: var(--bg-tertiary); height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-color);">
+                <div class="progress-bar-fill" style="background: var(--gold-primary); height: 100%; width: <%= pct %>%; border-radius: 4px;"></div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Right Side: Detailed Transactions ledger -->
+  <div class="card card-premium" style="flex: 1 1 60%;">
+    <div class="card-header" style="justify-content: space-between;">
+      <h3 class="card-title"><i class="fa-solid fa-receipt"></i> Lançamentos no Período</h3>
+      <span class="badge badge-finalizado"><%= filterLabel %></span>
+    </div>
+
+    <% if (detailAppointments.length === 0) { %>
+      <div class="empty-state">
+        <i class="fa-solid fa-receipt"></i>
+        <h3>Nenhum corte registrado</h3>
+        <p>Não há atendimentos concluídos no período de: <strong><%= filterLabel %></strong>.</p>
+      </div>
+    <% } else { %>
+      <div style="overflow-x: auto; margin-top: 1rem;">
+        <table class="financial-table" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="border-bottom: 2px solid var(--border-color); text-align: left; font-size: 0.9rem; color: var(--text-muted);">
+              <th style="padding: 0.75rem;">Data/Hora</th>
+              <th style="padding: 0.75rem;">Cliente</th>
+              <th style="padding: 0.75rem;">Serviço</th>
+              <th style="padding: 0.75rem;">Lançado</th>
+              <th style="padding: 0.75rem;">Observação</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% detailAppointments.forEach(appt => { %>
+              <tr style="border-bottom: 1px solid var(--border-color); font-size: 0.9rem; transition: background 0.2s;">
+                <td style="padding: 0.85rem; color: var(--text-muted);">
+                  <% 
+                    const d = new Date(appt.appointment_date);
+                    const dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'Data inválida';
+                    const hourStr = !isNaN(d.getTime()) ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+                  %>
+                  <%= dateStr %> - <%= hourStr %>
+                </td>
+                <td style="padding: 0.85rem; font-weight: 600; color: var(--text-main);"><%= appt.customer_name %></td>
+                <td style="padding: 0.85rem; color: var(--text-main);"><%= appt.service_type %></td>
+                <td style="padding: 0.85rem; color: var(--color-finalizado); font-weight: bold;">R$ <%= appt.price.toFixed(2).replace('.', ',') %></td>
+                <td style="padding: 0.85rem; color: var(--text-muted); font-size: 0.8rem; font-style: italic;"><%= appt.notes || '-' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Embedded JS to show/hide custom date range pickers -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const periodSelect = document.getElementById('financialPeriodSelect');
+    const customDates = document.getElementById('financialCustomDates');
+
+    if (periodSelect && customDates) {
+      periodSelect.addEventListener('change', () => {
+        if (periodSelect.value === 'custom') {
+          customDates.style.display = 'flex';
+        } else {
+          customDates.style.display = 'none';
+          periodSelect.closest('form').submit();
+        }
+      });
+    }
+
+    // Hover effect to show value labels on chart bars
+    const bars = document.querySelectorAll('.chart-bar-wrapper');
+    bars.forEach(bar => {
+      bar.addEventListener('mouseenter', () => {
+        const val = bar.querySelector('.chart-bar-value');
+        if (val) val.style.display = 'block';
+      });
+      bar.addEventListener('mouseleave', () => {
+        const val = bar.querySelector('.chart-bar-value');
+        if (val) val.style.display = 'none';
+      });
+    });
+  });
+</script>
+<%- include('../partials/footer') %>

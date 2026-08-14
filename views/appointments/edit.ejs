@@ -1,0 +1,96 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div class="page-title">
+    <h1>Editar Agendamento</h1>
+    <p>Modifique as informações ou altere o status do atendimento.</p>
+  </div>
+  <a href="/appointments" class="btn btn-secondary">
+    <i class="fa-solid fa-arrow-left"></i> Voltar à Agenda
+  </a>
+</div>
+
+<div class="card card-premium" style="max-width: 600px; margin: 0 auto;">
+  <div class="card-header">
+    <h3 class="card-title"><i class="fa-solid fa-pen-to-square"></i> Detalhes do Agendamento</h3>
+  </div>
+
+  <% if (locals.error) { %>
+    <div class="alert alert-danger">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span><%= error %></span>
+    </div>
+  <% } %>
+
+  <form action="/appointments/<%= appointment.id %>/edit" method="POST">
+    <!-- Customer Name -->
+    <div class="form-group">
+      <label for="customer_name" class="form-label">Nome do Cliente *</label>
+      <input type="text" id="customer_name" name="customer_name" class="form-control" value="<%= appointment.customer_name %>" required autocomplete="off">
+    </div>
+
+    <!-- Customer Phone -->
+    <div class="form-group">
+      <label for="customer_phone" class="form-label">Telefone de Contato *</label>
+      <input type="tel" id="customer_phone" name="customer_phone" class="form-control" value="<%= appointment.customer_phone %>" required autocomplete="off">
+    </div>
+
+    <!-- Service Type -->
+    <div class="form-group">
+      <label for="service_type" class="form-label">Tipo de Serviço *</label>
+      <input type="text" id="service_type" name="service_type" class="form-control" value="<%= appointment.service_type %>" required autocomplete="off">
+      
+      <!-- Quick Select Presets -->
+      <div class="presets-grid">
+        <button type="button" class="preset-btn <%= appointment.service_type === 'Corte' ? 'active' : '' %>" data-preset="Corte">Corte (R$40)</button>
+        <button type="button" class="preset-btn <%= appointment.service_type === 'Barba' ? 'active' : '' %>" data-preset="Barba">Barba (R$30)</button>
+        <button type="button" class="preset-btn <%= appointment.service_type === 'Pigmentação' ? 'active' : '' %>" data-preset="Pigmentação">Pigmentação (R$25)</button>
+        <button type="button" class="preset-btn <%= appointment.service_type === 'Corte & Barba' ? 'active' : '' %>" data-preset="Corte & Barba">Combo (R$65)</button>
+      </div>
+    </div>
+
+    <!-- Price -->
+    <div class="form-group">
+      <label for="price" class="form-label">Preço Cobrado *</label>
+      <div class="input-prefix-wrapper">
+        <span class="input-prefix">R$</span>
+        <input type="number" id="price" name="price" class="form-control" step="0.01" min="0" value="<%= appointment.price %>" required>
+      </div>
+    </div>
+
+    <!-- Appointment Date/Time -->
+    <div class="form-group">
+      <label for="appointment_date" class="form-label">Data e Hora do Atendimento *</label>
+      <input type="datetime-local" id="appointment_date" name="appointment_date" class="form-control" value="<%= appointment.appointment_date %>" required>
+    </div>
+
+    <!-- Status -->
+    <div class="form-group">
+      <label for="status" class="form-label">Status *</label>
+      <select id="status" name="status" class="form-control" required>
+        <option value="Agendado" <%= appointment.status === 'Agendado' ? 'selected' : '' %>>Agendado</option>
+        <option value="Em Andamento" <%= appointment.status === 'Em Andamento' ? 'selected' : '' %>>Em Andamento</option>
+        <option value="Finalizado" <%= appointment.status === 'Finalizado' ? 'selected' : '' %>>Finalizado</option>
+        <option value="Cancelado" <%= appointment.status === 'Cancelado' ? 'selected' : '' %>>Cancelado</option>
+      </select>
+    </div>
+
+    <!-- Notes -->
+    <div class="form-group">
+      <label for="notes" class="form-label">Observações / Preferências (Opcional)</label>
+      <textarea id="notes" name="notes" class="form-control" placeholder="Ex: Risco na sobrancelha, cabelo molhado, etc."><%= appointment.notes %></textarea>
+    </div>
+
+    <!-- Actions -->
+    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+      <button type="submit" class="btn btn-primary" style="flex: 1;">
+        <i class="fa-solid fa-floppy-disk"></i> Atualizar Dados
+      </button>
+      <a href="/appointments" class="btn btn-secondary" style="flex: 1; text-align: center;">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>
