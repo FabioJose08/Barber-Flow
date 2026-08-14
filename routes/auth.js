@@ -44,9 +44,14 @@ router.get('/', (req, res) => {
 // BARBER AUTHENTICATION ROTAS
 // ==========================================
 
-// GET /register - Render registration page for barbers
+// GET /register - Redirect to login (Google only)
 router.get('/register', redirectIfAuthenticated, (req, res) => {
-  res.render('register', { error: null, success: null, data: {} });
+  res.redirect('/login');
+});
+
+// GET /login - Render login page for barbers (Google Sign-In only)
+router.get('/login', redirectIfAuthenticated, (req, res) => {
+  res.render('login', { error: null, success: null });
 });
 
 
@@ -106,9 +111,14 @@ router.post('/auth/google', async (req, res) => {
 // CLIENT AUTHENTICATION ROTAS
 // ==========================================
 
-// GET /client/register - Render registration page for clients
+// GET /client/register - Redirect to client login (Google only)
 router.get('/client/register', redirectIfAuthenticated, (req, res) => {
-  res.render('client/register', { error: null, success: null, data: {} });
+  res.redirect('/client/login');
+});
+
+// GET /client/login - Render login page for clients (Google Sign-In only)
+router.get('/client/login', redirectIfAuthenticated, (req, res) => {
+  res.render('client/login', { error: null, success: null });
 });
 
 
