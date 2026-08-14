@@ -28,14 +28,16 @@ const hasCredentials =
 
 let db;
 let FieldValue;
+let firebaseAdmin = null;
 
 if (hasCredentials) {
   try {
     const admin = require('firebase-admin');
+    const { getFirestore, FieldValue: FirestoreFieldValue } = require('firebase-admin/firestore');
 
-    if (!admin.apps.length) {
+    if (!admin.getApps().length) {
       admin.initializeApp({
-        credential: admin.credential.cert({
+        credential: admin.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
@@ -46,8 +48,9 @@ if (hasCredentials) {
       });
     }
 
-    db = admin.firestore();
-    FieldValue = admin.firestore.FieldValue;
+    db = getFirestore();
+    FieldValue = FirestoreFieldValue;
+    firebaseAdmin = admin;
     console.log('Firebase Firestore conectado com sucesso!');
   } catch (err) {
     console.error('Falha ao inicializar Firebase Admin:', err.message);
@@ -63,4 +66,4 @@ if (hasCredentials) {
   FieldValue = MemoryFieldValue;
 }
 
-module.exports = { db, FieldValue };
+module.exports = { db, FieldValue, admin: firebaseAdmin };

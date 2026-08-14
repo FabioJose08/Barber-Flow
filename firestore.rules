@@ -5,6 +5,13 @@ rules_version = '2';
 // ARQUITETURA: acesso a dados 100% server-side via Firebase Admin SDK
 // (Node.js/Express — ver database/repository.js e routes/*.js).
 //
+// AUTENTICAÇÃO: suporta login com e-mail/senha (bcrypt) e Google Sign-In.
+// Ambos os fluxos são verificados no backend:
+//   - E-mail/senha: bcrypt.compare() em routes/auth.js
+//   - Google: admin.auth().verifyIdToken() em routes/auth.js
+// O token do Google é verificado server-side e NUNCA acessa o Firestore
+// diretamente pelo client SDK.
+//
 // IMPORTANTE: o Firebase Admin SDK IGNORA as Security Rules. Estas regras
 // NÃO limitam o backend; elas protegem o banco contra:
 //   1) acesso direto por SDKs de cliente (web/mobile);
@@ -21,8 +28,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ------------------------------------------------------------------------
-    // users — contém hashes bcrypt de senha. NUNCA legível por clientes.
-    // A autenticação (login/registro) é tratada exclusivamente no backend.
+    // users — contém hashes bcrypt de senha e dados de perfil.
+    // Inclui usuários registrados por e-mail/senha e por Google Sign-In.
+    // NUNCA legível por clientes. A autenticação é tratada no backend.
     // ------------------------------------------------------------------------
     match /users/{userId} {
       allow read, write: if false;

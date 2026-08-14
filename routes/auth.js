@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const { createUser, findUserByEmail } = require('../database/repository');
+const { admin } = require('../database/firebase');
 const { redirectIfAuthenticated } = require('../middleware/auth');
 
 function createSession(req, res, user, redirectUrl) {
@@ -23,6 +24,29 @@ function createSession(req, res, user, redirectUrl) {
     };
 
     res.redirect(redirectUrl);
+  });
+}
+
+/**
+ * Variação de createSession que retorna JSON em vez de redirect,
+ * usada pelas rotas de Google Sign-In (chamadas via fetch/AJAX).
+ */
+function createSessionJSON(req, res, user, redirectUrl) {
+  req.session.regenerate((err) => {
+    if (err) {
+      console.error('Error regenerating session:', err);
+      return res.status(500).json({ success: false, error: 'Erro interno de autenticação.' });
+    }
+
+    req.session.user = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role || 'cliente',
+      phone: user.phone || null
+    };
+
+    res.json({ success: true, redirectUrl });
   });
 }
 
@@ -126,6 +150,57 @@ router.post('/login', redirectIfAuthenticated, async (req, res) => {
 });
 
 // ==========================================
+// GOOGLE SIGN-IN — BARBEIRO
+// ==========================================
+
+// POST /auth/google - Verify Google ID token and create/find barber user
+router.post('/auth/google', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ success: false, error: 'Token não fornecido.' });
+    }
+
+    if (!admin) {
+      return res.status(503).json({ success: false, error: 'Firebase não configurado. Google Sign-In indisponível.' });
+    }
+
+    // Verify the Google ID token with Firebase Admin
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const email = decodedToken.email;
+    const name = decodedToken.name || email.split('@')[0];
+
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Conta Google sem e-mail válido.' });
+    }
+
+    // Check if user already exists
+    let user = await findUserByEmail(email);
+
+    if (user) {
+      // User exists — log them in with their existing role
+      createSessionJSON(req, res, user, user.role === 'cliente' ? '/client/dashboard' : '/dashboard');
+    } else {
+      // New user — create as barbeiro (came from barber login page)
+      user = await createUser({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password: null, // Google users don't have a password
+        role: 'barbeiro',
+        auth_provider: 'google',
+        google_uid: decodedToken.uid
+      });
+
+      createSessionJSON(req, res, user, '/dashboard');
+    }
+  } catch (err) {
+    console.error('Error during Google Sign-In (barber):', err);
+    res.status(500).json({ success: false, error: 'Erro ao autenticar com Google.' });
+  }
+});
+
+// ==========================================
 // CLIENT AUTHENTICATION ROTAS
 // ==========================================
 
@@ -213,6 +288,57 @@ router.post('/client/login', redirectIfAuthenticated, async (req, res) => {
   } catch (err) {
     console.error('Error during client login:', err);
     res.render('client/login', { error: 'Erro ao realizar login. Tente novamente.', success: null, email });
+  }
+});
+
+// ==========================================
+// GOOGLE SIGN-IN — CLIENTE
+// ==========================================
+
+// POST /client/auth/google - Verify Google ID token and create/find client user
+router.post('/client/auth/google', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ success: false, error: 'Token não fornecido.' });
+    }
+
+    if (!admin) {
+      return res.status(503).json({ success: false, error: 'Firebase não configurado. Google Sign-In indisponível.' });
+    }
+
+    // Verify the Google ID token with Firebase Admin
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const email = decodedToken.email;
+    const name = decodedToken.name || email.split('@')[0];
+
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Conta Google sem e-mail válido.' });
+    }
+
+    // Check if user already exists
+    let user = await findUserByEmail(email);
+
+    if (user) {
+      // User exists — log them in with their existing role
+      createSessionJSON(req, res, user, user.role === 'cliente' ? '/client/dashboard' : '/dashboard');
+    } else {
+      // New user — create as cliente (came from client login page)
+      user = await createUser({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password: null,
+        role: 'cliente',
+        auth_provider: 'google',
+        google_uid: decodedToken.uid
+      });
+
+      createSessionJSON(req, res, user, '/client/dashboard');
+    }
+  } catch (err) {
+    console.error('Error during Google Sign-In (client):', err);
+    res.status(500).json({ success: false, error: 'Erro ao autenticar com Google.' });
   }
 });
 
