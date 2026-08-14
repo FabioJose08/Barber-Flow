@@ -1,0 +1,66 @@
+rules_version = '2';
+// ============================================================================
+// BARBER FLOW — REGRAS DO CLOUD FIRESTORE (PRODUÇÃO)
+// ----------------------------------------------------------------------------
+// ARQUITETURA: acesso a dados 100% server-side via Firebase Admin SDK
+// (Node.js/Express — ver database/repository.js e routes/*.js).
+//
+// IMPORTANTE: o Firebase Admin SDK IGNORA as Security Rules. Estas regras
+// NÃO limitam o backend; elas protegem o banco contra:
+//   1) acesso direto por SDKs de cliente (web/mobile);
+//   2) exposição de dados sensíveis caso o service account vaze.
+//
+// POSTURA: PRINCÍPIO DO MENOR PRIVILÉGIO — tudo negado por padrão.
+// A autorização de cada ação é feita no backend (middleware de sessão em
+// middleware/auth.js + verificação de propriedade em database/repository.js
+// - findAppointmentsByOwner, deleteService, etc.), nunca nestas regras.
+//
+// DEPLOY: firebase deploy --only firestore:rules
+// ============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------------
+    // users — contém hashes bcrypt de senha. NUNCA legível por clientes.
+    // A autenticação (login/registro) é tratada exclusivamente no backend.
+    // ------------------------------------------------------------------------
+    match /users/{userId} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------------------------------------------------
+    // appointments — agendamentos (nome/telefone do cliente, preço, status).
+    // Gerido exclusivamente pelo backend autenticado (rotas de barbeiro e
+    // cliente + link público de agendamento em routes/booking.js).
+    // ------------------------------------------------------------------------
+    match /appointments/{appointmentId} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------------------------------------------------
+    // services — catálogo de serviços por barbeiro.
+    // Gerido exclusivamente pelo backend autenticado (routes/services.js).
+    // ------------------------------------------------------------------------
+    match /services/{serviceId} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------------------------------------------------
+    // barber_configs — horários, intervalo de slots e booking_token.
+    // O booking_token alimenta o link público de agendamento e NÃO pode ser
+    // exposto diretamente a clientes via SDK.
+    // ------------------------------------------------------------------------
+    match /barber_configs/{configId} {
+      allow read, write: if false;
+    }
+
+    // ------------------------------------------------------------------------
+    // REGRA CORINGA — nega qualquer coleção nova não mapeada acima.
+    // Garante que adicionar uma nova coleção não abra acesso por acidente:
+    // primeiro se define a regra explícita, depois se libera o acesso.
+    // ------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

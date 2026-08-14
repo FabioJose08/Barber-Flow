@@ -1,7 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const { Appointment, Service } = require('../database/models');
+const {
+  createAppointment,
+  findAppointments,
+  findAppointmentsByOwner,
+  findByIdAndUpdate,
+  deleteAppointment,
+  findServicesByUser
+} = require('../database/repository');
 const { requireBarber } = require('../middleware/auth');
 
 // GET /appointments - List and filter appointments
@@ -10,11 +16,11 @@ router.get('/', requireBarber, async (req, res) => {
   const { date_filter, status_filter, search } = req.query;
 
   try {
-    const filter = { user_id: new mongoose.Types.ObjectId(userId) };
+    const filter = { userId };
 
     // Search by customer name
     if (search && search.trim() !== '') {
-      filter.customer_name = { $regex: search.trim(), $options: 'i' };
+      filter.nameSearch = search.trim();
     }
 
     // Filter by status
@@ -31,9 +37,8 @@ router.get('/', requireBarber, async (req, res) => {
       const todayStr = `${year}-${month}-${day}`;
 
       if (date_filter === 'today') {
-        const todayStart = new Date(`${todayStr}T00:00:00`);
-        const todayEnd = new Date(`${todayStr}T23:59:59`);
-        filter.appointment_date = { $gte: todayStart, $lte: todayEnd };
+        filter.dateStart = `${todayStr}T00:00:00`;
+        filter.dateEnd = `${todayStr}T23:59:59`;
       } else if (date_filter === 'tomorrow') {
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -41,24 +46,22 @@ router.get('/', requireBarber, async (req, res) => {
         const tm = String(tomorrow.getMonth() + 1).padStart(2, '0');
         const td = String(tomorrow.getDate()).padStart(2, '0');
         const tomorrowStr = `${ty}-${tm}-${td}`;
-        const tomorrowStart = new Date(`${tomorrowStr}T00:00:00`);
-        const tomorrowEnd = new Date(`${tomorrowStr}T23:59:59`);
-        filter.appointment_date = { $gte: tomorrowStart, $lte: tomorrowEnd };
+        filter.dateStart = `${tomorrowStr}T00:00:00`;
+        filter.dateEnd = `${tomorrowStr}T23:59:59`;
       } else if (date_filter === 'week') {
         const weekEnd = new Date(now);
         weekEnd.setDate(weekEnd.getDate() + 7);
-        const weekStart = new Date(`${todayStr}T00:00:00`);
-        filter.appointment_date = { $gte: weekStart, $lte: weekEnd };
+        filter.dateStart = `${todayStr}T00:00:00`;
+        filter.dateEnd = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, '0')}-${String(weekEnd.getDate()).padStart(2, '0')}T23:59:59`;
       } else if (/^\d{4}-\d{2}-\d{2}$/.test(date_filter)) {
         // Specific date selected
-        const dateStart = new Date(`${date_filter}T00:00:00`);
-        const dateEnd = new Date(`${date_filter}T23:59:59`);
-        filter.appointment_date = { $gte: dateStart, $lte: dateEnd };
+        filter.dateStart = `${date_filter}T00:00:00`;
+        filter.dateEnd = `${date_filter}T23:59:59`;
       }
     }
 
-    const appointments = await Appointment.find(filter).sort({ appointment_date: 1 });
-    const services = await Service.find({ user_id: new mongoose.Types.ObjectId(userId) }).sort({ name: 1 });
+    const appointments = await findAppointments(filter);
+    const services = await findServicesByUser(userId);
 
     res.render('appointments/index', {
       user: req.session.user,
@@ -72,9 +75,9 @@ router.get('/', requireBarber, async (req, res) => {
     });
   } catch (err) {
     console.error('Error fetching appointments:', err);
-    res.status(500).render('error', { 
-      error: 'Erro ao listar agendamentos.', 
-      user: req.session.user 
+    res.status(500).render('error', {
+      error: 'Erro ao listar agendamentos.',
+      user: req.session.user
     });
   }
 });
@@ -88,7 +91,7 @@ router.get('/new', requireBarber, async (req, res) => {
 
   try {
     const userId = req.session.user.id;
-    const services = await Service.find({ user_id: new mongoose.Types.ObjectId(userId) }).sort({ name: 1 });
+    const services = await findServicesByUser(userId);
 
     res.render('appointments/new', {
       user: req.session.user,
@@ -141,18 +144,16 @@ router.post('/', requireBarber, async (req, res) => {
     }
 
     // Create and save appointment
-    const appointment = new Appointment({
-      user_id: new mongoose.Types.ObjectId(userId),
+    await createAppointment({
+      user_id: userId,
       customer_name: customer_name.trim(),
       customer_phone: customer_phone.trim(),
       service_type: service_type.trim(),
       price: priceNum,
       status,
-      appointment_date: new Date(appointment_date),
+      appointment_date: new Date(appointment_date).toISOString(),
       notes: notes ? notes.trim() : ''
     });
-    
-    await appointment.save();
 
     res.redirect('/appointments');
   } catch (err) {
@@ -172,28 +173,31 @@ router.get('/:id/edit', requireBarber, async (req, res) => {
   const appointmentId = req.params.id;
 
   try {
-    const appointment = await Appointment.findOne({
-      _id: new mongoose.Types.ObjectId(appointmentId),
-      user_id: new mongoose.Types.ObjectId(userId)
-    });
+    const appointment = await findAppointmentsByOwner(appointmentId, userId);
 
     if (!appointment) {
-      return res.status(404).render('error', { 
-        error: 'Agendamento não encontrado ou não pertence à sua conta.', 
-        user: req.session.user 
+      return res.status(404).render('error', {
+        error: 'Agendamento não encontrado ou não pertence à sua conta.',
+        user: req.session.user
       });
     }
 
+    // Convert ISO date back to datetime-local format for the form
+    const isoDate = appointment.appointment_date;
+    const dt = new Date(isoDate);
+    const offset = dt.getTimezoneOffset() * 60000;
+    const localDT = new Date(dt.getTime() - offset).toISOString().slice(0, 16);
+
     res.render('appointments/edit', {
       user: req.session.user,
-      appointment,
+      appointment: { ...appointment, appointment_date: localDT },
       error: null
     });
   } catch (err) {
     console.error('Error fetching appointment for edit:', err);
-    res.status(500).render('error', { 
-      error: 'Erro ao carregar agendamento.', 
-      user: req.session.user 
+    res.status(500).render('error', {
+      error: 'Erro ao carregar agendamento.',
+      user: req.session.user
     });
   }
 });
@@ -206,22 +210,19 @@ router.post('/:id/edit', requireBarber, async (req, res) => {
 
   try {
     // Verify ownership
-    const appointment = await Appointment.findOne({
-      _id: new mongoose.Types.ObjectId(appointmentId),
-      user_id: new mongoose.Types.ObjectId(userId)
-    });
+    const appointment = await findAppointmentsByOwner(appointmentId, userId);
 
     if (!appointment) {
-      return res.status(404).render('error', { 
-        error: 'Agendamento não encontrado.', 
-        user: req.session.user 
+      return res.status(404).render('error', {
+        error: 'Agendamento não encontrado.',
+        user: req.session.user
       });
     }
 
     if (!customer_name || !customer_phone || !service_type || !price || !status || !appointment_date) {
       return res.render('appointments/edit', {
         user: req.session.user,
-        appointment: { _id: appointmentId, customer_name, customer_phone, service_type, price, status, appointment_date, notes },
+        appointment: { id: appointmentId, customer_name, customer_phone, service_type, price, status, appointment_date, notes },
         error: 'Preencha todos os campos obrigatórios.'
       });
     }
@@ -230,32 +231,28 @@ router.post('/:id/edit', requireBarber, async (req, res) => {
     if (isNaN(priceNum) || priceNum < 0) {
       return res.render('appointments/edit', {
         user: req.session.user,
-        appointment: { _id: appointmentId, customer_name, customer_phone, service_type, price, status, appointment_date, notes },
+        appointment: { id: appointmentId, customer_name, customer_phone, service_type, price, status, appointment_date, notes },
         error: 'O preço deve ser um valor numérico válido.'
       });
     }
 
     // Update appointment
-    await Appointment.findByIdAndUpdate(
-      new mongoose.Types.ObjectId(appointmentId),
-      {
-        customer_name: customer_name.trim(),
-        customer_phone: customer_phone.trim(),
-        service_type: service_type.trim(),
-        price: priceNum,
-        status,
-        appointment_date: new Date(appointment_date),
-        notes: notes ? notes.trim() : ''
-      },
-      { new: true }
-    );
+    await findByIdAndUpdate(appointmentId, {
+      customer_name: customer_name.trim(),
+      customer_phone: customer_phone.trim(),
+      service_type: service_type.trim(),
+      price: priceNum,
+      status,
+      appointment_date: new Date(appointment_date).toISOString(),
+      notes: notes ? notes.trim() : ''
+    });
 
     res.redirect('/appointments');
   } catch (err) {
     console.error('Error updating appointment:', err);
-    res.status(500).render('error', { 
-      error: 'Erro interno ao atualizar o agendamento.', 
-      user: req.session.user 
+    res.status(500).render('error', {
+      error: 'Erro interno ao atualizar o agendamento.',
+      user: req.session.user
     });
   }
 });
@@ -266,26 +263,25 @@ router.post('/:id/delete', requireBarber, async (req, res) => {
   const appointmentId = req.params.id;
 
   try {
-    const result = await Appointment.deleteOne({
-      _id: new mongoose.Types.ObjectId(appointmentId),
-      user_id: new mongoose.Types.ObjectId(userId)
-    });
+    const appointment = await findAppointmentsByOwner(appointmentId, userId);
 
-    if (result.deletedCount === 0) {
-      return res.status(404).render('error', { 
-        error: 'Agendamento não encontrado ou não pertence a você.', 
-        user: req.session.user 
+    if (!appointment) {
+      return res.status(404).render('error', {
+        error: 'Agendamento não encontrado ou não pertence a você.',
+        user: req.session.user
       });
     }
+
+    await deleteAppointment(appointmentId);
 
     // Redirect to referer page if it exists (e.g. dashboard or appointments list), otherwise /appointments
     const redirectUrl = req.headers.referer || '/appointments';
     res.redirect(redirectUrl);
   } catch (err) {
     console.error('Error deleting appointment:', err);
-    res.status(500).render('error', { 
-      error: 'Erro ao excluir o agendamento.', 
-      user: req.session.user 
+    res.status(500).render('error', {
+      error: 'Erro ao excluir o agendamento.',
+      user: req.session.user
     });
   }
 });
@@ -302,26 +298,24 @@ router.post('/:id/status', requireBarber, async (req, res) => {
       return res.status(400).send('Status inválido.');
     }
 
-    const result = await Appointment.findByIdAndUpdate(
-      new mongoose.Types.ObjectId(appointmentId),
-      { status },
-      { new: true }
-    );
+    const appointment = await findAppointmentsByOwner(appointmentId, userId);
 
-    if (!result || result.user_id.toString() !== userId) {
-      return res.status(404).render('error', { 
-        error: 'Agendamento não encontrado ou não autorizado.', 
-        user: req.session.user 
+    if (!appointment) {
+      return res.status(404).render('error', {
+        error: 'Agendamento não encontrado ou não autorizado.',
+        user: req.session.user
       });
     }
+
+    await findByIdAndUpdate(appointmentId, { status });
 
     const redirectUrl = req.headers.referer || '/dashboard';
     res.redirect(redirectUrl);
   } catch (err) {
     console.error('Error quick updating status:', err);
-    res.status(500).render('error', { 
-      error: 'Erro ao atualizar o status do agendamento.', 
-      user: req.session.user 
+    res.status(500).render('error', {
+      error: 'Erro ao atualizar o status do agendamento.',
+      user: req.session.user
     });
   }
 });
@@ -338,6 +332,15 @@ router.post('/:id/finalize', requireBarber, async (req, res) => {
       return res.status(400).send('Preço inválido.');
     }
 
+    const appointment = await findAppointmentsByOwner(appointmentId, userId);
+
+    if (!appointment) {
+      return res.status(404).render('error', {
+        error: 'Agendamento não encontrado ou não autorizado.',
+        user: req.session.user
+      });
+    }
+
     const updateData = {
       status: 'Finalizado',
       service_type: service_type.trim(),
@@ -349,26 +352,15 @@ router.post('/:id/finalize', requireBarber, async (req, res) => {
       updateData.notes = notes.trim();
     }
 
-    const result = await Appointment.findByIdAndUpdate(
-      new mongoose.Types.ObjectId(appointmentId),
-      updateData,
-      { new: true }
-    );
-
-    if (!result || result.user_id.toString() !== userId) {
-      return res.status(404).render('error', { 
-        error: 'Agendamento não encontrado ou não autorizado.', 
-        user: req.session.user 
-      });
-    }
+    await findByIdAndUpdate(appointmentId, updateData);
 
     const redirectUrl = req.headers.referer || '/dashboard';
     res.redirect(redirectUrl);
   } catch (err) {
     console.error('Error finalizing appointment:', err);
-    res.status(500).render('error', { 
-      error: 'Erro ao finalizar o agendamento.', 
-      user: req.session.user 
+    res.status(500).render('error', {
+      error: 'Erro ao finalizar o agendamento.',
+      user: req.session.user
     });
   }
 });

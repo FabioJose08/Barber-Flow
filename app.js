@@ -3,8 +3,8 @@ const session = require('express-session');
 const path = require('path');
 require('dotenv').config();
 
-// Initialize MongoDB connection
-require('./database/mongodb');
+// Initialize Firebase Firestore connection (or in-memory fallback in dev)
+require('./database/firebase');
 
 const app = express();
 
@@ -89,7 +89,7 @@ app.use('/', clientRoutes);
 
 // Catch-all 404 Route
 app.use((req, res) => {
-  res.status(404).render('error', { 
+  res.status(404).render('error', {
     error: 'A página que você está procurando não existe ou foi movida.',
     user: req.session.user || null
   });
@@ -104,12 +104,16 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`\n======================================================`);
-  console.log(`💈 BARBERFLOW SERVER IS ONLINE!`);
-  console.log(`🌐 Local URL: http://localhost:${PORT}`);
-  console.log(`📁 Database: MongoDB (Vercel Compatible)`);
-  console.log(`======================================================\n`);
-});
+// Start Server only when run directly (not when required by tests)
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log('\n======================================================');
+    console.log('💈 BARBERFLOW SERVER IS ONLINE!');
+    console.log(`🌐 Local URL: http://localhost:${PORT}`);
+    console.log('📁 Database: Firebase Firestore');
+    console.log('======================================================\n');
+  });
+}
+
+module.exports = app;

@@ -1,8 +1,8 @@
 # BarberFlow 💈
 
-O **BarberFlow** é um SaaS completo de gestão para barbearias desenvolvido para oferecer alta performance, controle financeiro rápido e agendamentos intuitivos. Projetado especialmente para uso móvel direto no salão, possui uma interface premium com estética clássica e escura (tons de carvão e detalhes em dourado).
+Projetado especialmente para uso móvel direto no salão, possui uma interface premium com estética clássica e escura (tons de carvão e detalhes em dourado).
 
-Desenvolvido utilizando as tecnologias mais modernas do ecossistema Node.js, incluindo o novo módulo nativo de banco de dados do Node: **`node:sqlite`** (disponível no Node.js v22+), dispensando a instalação de drivers pesados de terceiros.
+Banco de dados gerenciado pelo **Firebase Firestore (Google)** — persistência em nuvem, sem servidor de banco local.
 
 ---
 
@@ -19,17 +19,31 @@ Desenvolvido utilizando as tecnologias mais modernas do ecossistema Node.js, inc
    *   Lista dos próximos clientes com botões de ação rápida.
 5. **Ações Rápidas no Celular**: Botões no painel para mudar o status do cliente com 1 toque (*"Iniciar"* para mudar para Em Andamento e *"Concluir"* para Finalizar e somar o valor no faturamento).
 6. **Agenda com Filtros Avançados**: Busca por nome do cliente, filtro por status e filtro por período de tempo (Hoje, Amanhã, Semana ou Data específica).
+7. **Agendamento Online (Link Público)**: Cada barbeiro possui um link exclusivo para compartilhar com clientes, que agendam seus próprios horários.
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
-*   **Backend**: Node.js v22+ & Express.js
-*   **Banco de Dados**: SQLite (nativo do Node via módulo `node:sqlite`)
+*   **Backend**: Node.js & Express.js
+*   **Banco de Dados**: **Firebase Firestore (Google)** via `firebase-admin`
 *   **Frontend / Templates**: EJS (Embedded JavaScript templates)
 *   **Estilização**: CSS Puro (Vanilla CSS) com layout responsivo Mobile-First
 *   **Interatividade**: JavaScript Puro (Vanilla JS)
 *   **Segurança**: `bcrypt` para criptografia de senhas e `express-session` para sessões de usuário
+*   **Testes**: `node:test` (built-in) + `supertest`
+
+---
+
+## 🧪 Testes Unitários e de Integração
+
+Rodar a suíte completa (66 testes — helpers, repositório e rotas):
+
+```bash
+npm test
+```
+
+Os testes usam um **Firestore em memória** (`database/memory-store.js`) compatível com a API do Firestore, garantindo que rodem sem precisar de credenciais reais.
 
 ---
 
@@ -37,34 +51,29 @@ Desenvolvido utilizando as tecnologias mais modernas do ecossistema Node.js, inc
 
 ```
 ├── database/
-│   ├── db.js                 # Inicialização da conexão e tabelas do SQLite
-│   └── database.db           # Arquivo do banco de dados SQLite (gerado automaticamente)
+│   ├── firebase.js           # Inicialização do Firebase Admin (ou memory-store em dev)
+│   ├── memory-store.js       # Firestore em memória para desenvolvimento/testes
+│   ├── helpers.js            # Serialização de dados (Timestamps, ids)
+│   └── repository.js         # Camada de acesso a dados (substitui o Mongoose)
 ├── middleware/
 │   └── auth.js               # Filtros de rotas protegidas (Session Guard)
 ├── routes/
 │   ├── auth.js               # Rotas de Login, Registro e Logout
 │   ├── appointments.js       # CRUD de agendamentos e controle de status
-│   └── dashboard.js          # Agregação de estatísticas e renderização do painel
-├── views/
-│   ├── partials/
-│   │   ├── header.ejs        # Cabeçalho HTML, fontes e menu responsivo
-│   │   └── footer.ejs        # Rodapé HTML e carregamento de scripts
-│   ├── appointments/
-│   │   ├── index.ejs         # Filtros e listagem principal de atendimentos
-│   │   ├── new.ejs           # Formulário de criação de agendamento com presets rápidos
-│   │   └── edit.ejs          # Formulário de edição completa
-│   ├── dashboard.ejs         # Estatísticas rápidas e próximos atendimentos do dia
-│   ├── login.ejs             # Tela de login da barbearia
-│   ├── register.ejs          # Tela de cadastro da barbearia
-│   └── error.ejs             # Tela amigável de erro do sistema
-├── public/
-│   ├── css/
-│   │   └── style.css         # Estilização completa do sistema (Dark & Gold Theme)
-│   └── js/
-│       └── main.js           # Funções interativas, cliques rápidos e presets de preço
+│   ├── booking.js            # Agendamento público via link (token)
+│   ├── client.js             # Dashboard e cancelamento do cliente
+│   ├── dashboard.js          # Estatísticas e renderização do painel
+│   ├── financial.js          # Relatório financeiro
+│   └── services.js           # Catálogo de serviços e configurações
+├── tests/
+│   ├── helpers.test.js       # Testes unitários dos helpers
+│   ├── repository.test.js    # Testes unitários da camada de dados
+│   └── routes.test.js        # Testes de integração das rotas
+├── views/                    # Templates EJS
+├── public/                   # CSS, JS, assets
 ├── .env                      # Variáveis de ambiente locais
 ├── .gitignore                # Arquivos ignorados pelo controle de versão
-├── app.js                    # Inicialização do servidor Express e Middlewares globais
+├── app.js                    # Inicialização do servidor Express
 ├── package.json              # Script e dependências do projeto
 └── README.md                 # Manual de instalação e deploy
 ```
@@ -74,30 +83,43 @@ Desenvolvido utilizando as tecnologias mais modernas do ecossistema Node.js, inc
 ## ⚙️ Pré-requisitos e Instalação
 
 ### 1. Pré-requisitos
-*   **Node.js**: Versão **22.0.0** ou superior (Necessário devido ao suporte do módulo experimental nativo `node:sqlite`).
+*   **Node.js**: Versão **18.0.0** ou superior (testado na v24).
 
 ### 2. Clonar ou Baixar o Projeto
-Na pasta do projeto, execute o comando abaixo para instalar as dependências de terceiros:
+Na pasta do projeto, execute o comando abaixo para instalar as dependências:
 ```bash
 npm install
 ```
 
-### 3. Configurar Variáveis de Ambiente
-Crie um arquivo chamado `.env` na raiz do projeto e configure as seguintes variáveis:
+### 3. Configurar Variáveis de Ambiente (Firebase)
+Crie/edite o arquivo `.env` na raiz do projeto:
+
 ```env
 PORT=3000
 SESSION_SECRET=uma_chave_secreta_e_longa_aqui
-DB_PATH=database/database.db
+
+FIREBASE_PROJECT_ID=SEU_PROJECT_ID
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@SEU_PROJETO.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
+**Onde obter as credenciais:**
+1. Acesse o [Console Firebase](https://console.firebase.google.com/).
+2. Crie um projeto (ou use um existente).
+3. Ative o **Cloud Firestore** em *Build > Firestore Database*.
+4. Vá em *Configurações do projeto > Contas de serviço*.
+5. Clique em **Gerar nova chave privada** — baixe o arquivo JSON da conta de serviço.
+6. Copie `project_id`, `client_email` e `private_key` para o `.env`.
+
+> **Modo desenvolvimento (sem credenciais):** se as variáveis `FIREBASE_*` estiverem vazias,
+> o app inicia com um Firestore em memória — útil para testar sem configurar nada.
+
 ### 4. Executar em Modo de Desenvolvimento
-Para rodar a aplicação localmente com reinicialização automática ao editar arquivos (`nodemon`):
 ```bash
 npm run dev
 ```
 
 ### 5. Executar em Produção
-Para iniciar o servidor normalmente:
 ```bash
 npm start
 ```
@@ -105,40 +127,26 @@ Após iniciar, abra seu navegador e acesse: [http://localhost:3000](http://local
 
 ---
 
-## 🚀 Orientações para Deploy
+## 🔥 Coleções no Firestore
 
-Como o projeto utiliza banco de dados **SQLite integrado**, os dados são armazenados localmente em um arquivo (`database.db`). Em serviços de nuvem efêmeros, os dados serão perdidos a cada reinicialização caso não haja um volume persistente configurado.
+Ao usar o Firebase real, o app cria automaticamente as seguintes coleções:
 
-### 1. Deploy no Render
+| Coleção | Descrição |
+|---------|-----------|
+| `users` | Barbeiros e clientes (nome, e-mail, senha bcrypt, telefone, papel) |
+| `appointments` | Agendamentos (cliente, serviço, preço, status, data/hora) |
+| `services` | Catálogo de serviços por barbeiro (nome, preço, duração) |
+| `barber_configs` | Configurações da barbearia (nome, horários, token do link público) |
 
-Render é excelente para hospedar aplicações Node.js gratuitamente ou com baixo custo.
+---
 
-1.  **Crie um novo serviço**: No painel do Render, selecione **New > Web Service**.
-2.  **Conecte seu repositório**: Conecte o repositório GitHub do BarberFlow.
-3.  **Configurações do Serviço**:
-    *   **Runtime**: `Node`
-    *   **Build Command**: `npm install`
-    *   **Start Command**: `node app.js`
-4.  **Variáveis de Ambiente**: Vá na aba **Env Vars** e defina:
-    *   `NODE_VERSION`: `22.5.0` (ou superior, ex: `24.14.1`, para suportar o `node:sqlite`).
-    *   `PORT`: `3000` (Render preenche automaticamente, mas é bom deixar explícito).
-    *   `SESSION_SECRET`: Um texto aleatório e seguro para encriptar as sessões.
-    *   `DB_PATH`: `/opt/render/project/src/database/database.db` (Importante para persistência!).
-5.  **Persistência de Dados (Disk)**:
-    *   Para não perder os agendamentos a cada deploy, vá na aba **Disks** no painel do Render e selecione **Add Disk**.
-    *   **Mount Path**: `/opt/render/project/src/database`
-    *   **Size**: `1 GiB` (O suficiente para milhões de agendamentos SQLite).
+## 🚀 Orientações para Deploy (Vercel)
 
-### 2. Deploy no Railway
+O projeto já inclui `vercel.json` para deploy na Vercel.
 
-O Railway oferece deploy rápido e suporte excelente a volumes persistentes.
+1. Conecte o repositório GitHub na Vercel.
+2. Configure as **Environment Variables** no painel da Vercel (mesmas do `.env`, incluindo `FIREBASE_*`).
+3. O `vercel.json` aponta todas as rotas para `app.js`.
 
-1.  **Crie um novo projeto**: Escolha **New Project > Deploy from GitHub** e selecione o repositório.
-2.  **Configuração de Variáveis de Ambiente**:
-    *   `SESSION_SECRET`: Chave secreta aleatória.
-    *   `NODE_VERSION`: `22.0.0` ou mais recente.
-    *   `DB_PATH`: `/data/database.db`
-3.  **Volume Persistente**:
-    *   Após o deploy inicial, vá nas configurações do serviço criado no Railway.
-    *   Clique na aba **Volumes** e adicione um novo volume.
-    *   Defina o **Mount Path** do Volume para `/data`. Isso garante que o banco de dados armazenado em `/data/database.db` sobreviverá aos reinícios.
+> Diferente do SQLite/MongoDB local, o Firestore é um banco gerenciado na nuvem — **os dados persistem
+> entre deploys e reinicializações sem precisar de volumes/disk adicionais**.

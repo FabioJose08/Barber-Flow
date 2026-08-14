@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const { Appointment } = require('../database/models');
+const {
+  findAppointments,
+  getRevenueAndCount,
+  getRevenueAllTime,
+  getServiceBreakdown,
+  getRevenuePerDay
+} = require('../database/repository');
 const { requireBarber } = require('../middleware/auth');
 
 router.get('/financial', requireBarber, async (req, res) => {
@@ -55,119 +60,42 @@ router.get('/financial', requireBarber, async (req, res) => {
   }
 
   try {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-    const todayStart = new Date(`${todayStr}T00:00:00`);
-    const todayEnd = new Date(`${todayStr}T23:59:59`);
-    const weekStartDate = new Date(`${weekStart}T00:00:00`);
-    const weekEndDate = new Date(`${weekEnd}T23:59:59`);
-    const monthStartDate = new Date(`${monthStart}T00:00:00`);
-    const nextMonthDate = new Date(`${nextMonthStr}T00:00:00`);
-    const filterStartDate = new Date(`${filterStart}T00:00:00`);
-    const filterEndDate = new Date(`${filterEnd}T23:59:59`);
+    const todayStart = `${todayStr}T00:00:00`;
+    const todayEnd = `${todayStr}T23:59:59`;
+    const weekStartDate = `${weekStart}T00:00:00`;
+    const weekEndDate = `${weekEnd}T23:59:59`;
+    const monthStartDate = `${monthStart}T00:00:00`;
+    const nextMonthDate = `${nextMonthStr}T00:00:00`;
+    const filterStartDate = `${filterStart}T00:00:00`;
+    const filterEndDate = `${filterEnd}T23:59:59`;
 
     // Revenue today
-    const todayRevResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId,
-          status: 'Finalizado',
-          appointment_date: { $gte: todayStart, $lte: todayEnd }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$price' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-    const todayRev = todayRevResult.length > 0 ? todayRevResult[0] : { total: 0, count: 0 };
+    const todayRev = await getRevenueAndCount(userId, todayStart, todayEnd);
 
     // Revenue this week
-    const weekRevResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId,
-          status: 'Finalizado',
-          appointment_date: { $gte: weekStartDate, $lte: weekEndDate }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$price' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-    const weekRev = weekRevResult.length > 0 ? weekRevResult[0] : { total: 0, count: 0 };
+    const weekRev = await getRevenueAndCount(userId, weekStartDate, weekEndDate);
 
     // Revenue this month
-    const monthRevResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId,
-          status: 'Finalizado',
-          appointment_date: { $gte: monthStartDate, $lt: nextMonthDate }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$price' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-    const monthRev = monthRevResult.length > 0 ? monthRevResult[0] : { total: 0, count: 0 };
+    const monthRev = await getRevenueAndCount(userId, monthStartDate, nextMonthDate);
 
     // Revenue total (all time)
-    const totalRevResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId,
-          status: 'Finalizado'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$price' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-    const totalRev = totalRevResult.length > 0 ? totalRevResult[0] : { total: 0, count: 0 };
+    const totalRev = await getRevenueAllTime(userId);
 
     // Filtered detailed appointments list
-    const detailAppointments = await Appointment.find({
-      user_id: userObjectId,
+    const filteredAppointments = await findAppointments({
+      userId,
       status: 'Finalizado',
-      appointment_date: { $gte: filterStartDate, $lte: filterEndDate }
-    }).sort({ appointment_date: -1 });
+      dateStart: filterStartDate,
+      dateEnd: filterEndDate
+    });
+    const detailAppointments = filteredAppointments.sort((a, b) => {
+      const dateA = new Date(a.appointment_date).getTime();
+      const dateB = new Date(b.appointment_date).getTime();
+      return dateB - dateA;
+    });
 
     // Revenue per service (filtered period)
-    const serviceBreakdownResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId,
-          status: 'Finalizado',
-          appointment_date: { $gte: filterStartDate, $lte: filterEndDate }
-        }
-      },
-      {
-        $group: {
-          _id: '$service_type',
-          count: { $sum: 1 },
-          total: { $sum: '$price' }
-        }
-      },
-      {
-        $sort: { total: -1 }
-      }
-    ]);
-    const serviceBreakdown = serviceBreakdownResult;
+    const serviceBreakdown = await getServiceBreakdown(userId, filterStartDate, filterEndDate);
 
     // Revenue per day (last 7 days) for mini chart
     const last7Days = [];
@@ -177,38 +105,13 @@ router.get('/financial', requireBarber, async (req, res) => {
       last7Days.push(d.toISOString().slice(0, 10));
     }
 
-    const dailyRevenueResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId,
-          status: 'Finalizado',
-          appointment_date: {
-            $gte: new Date(`${last7Days[0]}T00:00:00`),
-            $lte: new Date(`${last7Days[6]}T23:59:59`)
-          }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: '%Y-%m-%d',
-              date: '$appointment_date'
-            }
-          },
-          total: { $sum: '$price' }
-        }
-      },
-      {
-        $sort: { _id: 1 }
-      }
-    ]);
+    const dailyRevenue = await getRevenuePerDay(userId, last7Days);
 
     const dailyMap = {};
-    dailyRevenueResult.forEach(r => {
-      dailyMap[r._id] = r.total;
+    dailyRevenue.forEach(r => {
+      dailyMap[r.day] = r.total;
     });
-    
+
     const chartData = last7Days.map(d => ({
       day: d,
       label: new Date(d + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
@@ -217,10 +120,8 @@ router.get('/financial', requireBarber, async (req, res) => {
     const chartMax = Math.max(...chartData.map(d => d.total), 1);
 
     // Pending count for badge
-    const pendingCount = await Appointment.countDocuments({
-      user_id: userObjectId,
-      status: 'Pendente'
-    });
+    const pendingAppointments = await findAppointments({ userId, status: 'Pendente' });
+    const pendingCount = pendingAppointments.length;
 
     res.render('financial/index', {
       user: req.session.user,

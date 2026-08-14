@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const { User } = require('../database/models');
+const { createUser, findUserByEmail } = require('../database/repository');
 const { redirectIfAuthenticated } = require('../middleware/auth');
 
 function createSession(req, res, user, redirectUrl) {
@@ -15,7 +15,7 @@ function createSession(req, res, user, redirectUrl) {
     }
 
     req.session.user = {
-      id: user._id.toString(),
+      id: user.id,
       name: user.name,
       email: user.email,
       role: user.role || 'cliente',
@@ -67,7 +67,7 @@ router.post('/register', redirectIfAuthenticated, async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    const existingUser = await findUserByEmail(email);
 
     if (existingUser) {
       return res.render('register', { error: 'Este e-mail já está cadastrado.', success: null, data: inputData });
@@ -77,14 +77,12 @@ router.post('/register', redirectIfAuthenticated, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new barber user
-    const newUser = new User({
+    const newUser = await createUser({
       name: name.trim(),
       email: email.trim().toLowerCase(),
       password: hashedPassword,
       role: 'barbeiro'
     });
-
-    await newUser.save();
 
     createSession(req, res, newUser, '/dashboard');
   } catch (err) {
@@ -108,7 +106,7 @@ router.post('/login', redirectIfAuthenticated, async (req, res) => {
     }
 
     // Fetch user
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const user = await findUserByEmail(email);
 
     if (!user) {
       return res.render('login', { error: 'E-mail ou senha incorretos.', success: null, email });
@@ -155,7 +153,7 @@ router.post('/client/register', redirectIfAuthenticated, async (req, res) => {
     }
 
     // Check if email already registered
-    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    const existingUser = await findUserByEmail(email);
 
     if (existingUser) {
       return res.render('client/register', { error: 'Este e-mail já está cadastrado.', success: null, data: inputData });
@@ -165,15 +163,13 @@ router.post('/client/register', redirectIfAuthenticated, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new client user
-    const newUser = new User({
+    const newUser = await createUser({
       name: name.trim(),
       email: email.trim().toLowerCase(),
       phone: phone.trim(),
       password: hashedPassword,
       role: 'cliente'
     });
-
-    await newUser.save();
 
     createSession(req, res, newUser, '/client/dashboard');
   } catch (err) {
@@ -197,7 +193,7 @@ router.post('/client/login', redirectIfAuthenticated, async (req, res) => {
     }
 
     // Fetch user
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const user = await findUserByEmail(email);
 
     if (!user) {
       return res.render('client/login', { error: 'E-mail ou senha incorretos.', success: null, email });
@@ -231,4 +227,3 @@ router.get('/logout', (req, res) => {
 });
 
 module.exports = router;
-

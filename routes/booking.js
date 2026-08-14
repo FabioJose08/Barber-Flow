@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const { Appointment, Service, BarberConfig } = require('../database/models');
+const {
+  createAppointment,
+  findAppointments,
+  findServicesByUser,
+  findServiceById,
+  findConfigByToken
+} = require('../database/repository');
 
 // Helper: generate time slots between open and close time
 function generateSlots(openTime, closeTime, intervalMin) {
@@ -21,15 +26,18 @@ function generateSlots(openTime, closeTime, intervalMin) {
 
 // Helper: get booked slots for a specific date
 async function getBookedSlots(userId, dateStr) {
-  const dateStart = new Date(`${dateStr}T00:00:00`);
-  const dateEnd = new Date(`${dateStr}T23:59:59`);
-  
-  const appointments = await Appointment.find({
-    user_id: new mongoose.Types.ObjectId(userId),
-    appointment_date: { $gte: dateStart, $lte: dateEnd },
-    status: { $ne: 'Cancelado' }
+  if (!dateStr) return [];
+
+  const dateStart = `${dateStr}T00:00:00`;
+  const dateEnd = `${dateStr}T23:59:59`;
+
+  const appointments = await findAppointments({
+    userId,
+    dateStart,
+    dateEnd,
+    excludeStatus: 'Cancelado'
   });
-  
+
   return appointments.map(a => {
     const dateObj = new Date(a.appointment_date);
     const h = String(dateObj.getHours()).padStart(2, '0');
@@ -42,14 +50,12 @@ async function getBookedSlots(userId, dateStr) {
 router.get('/book/:token', async (req, res) => {
   const { token } = req.params;
   try {
-    const config = await BarberConfig.findOne({ booking_token: token });
+    const config = await findConfigByToken(token);
     if (!config) {
       return res.status(404).render('error', { error: 'Link de agendamento inválido ou expirado.', user: null });
     }
 
-    // Keep the public booking page accessible so the client booking link works
-    // even when the barber is logged in from the same browser session.
-    const services = await Service.find({ user_id: config.user_id }).sort({ name: 1 });
+    const services = await findServicesByUser(config.user_id);
 
     // Default: show today's date
     const now = new Date();
@@ -88,12 +94,12 @@ router.post('/book/:token', async (req, res) => {
   const { customer_name, customer_phone, service_id, appointment_date, time_slot, notes } = req.body;
 
   try {
-    const config = await BarberConfig.findOne({ booking_token: token });
+    const config = await findConfigByToken(token);
     if (!config) {
       return res.status(404).render('error', { error: 'Link inválido.', user: null });
     }
 
-    const services = await Service.find({ user_id: config.user_id }).sort({ name: 1 });
+    const services = await findServicesByUser(config.user_id);
 
     const loggedClient = (req.session && req.session.user && req.session.user.role === 'cliente')
       ? req.session.user : null;
@@ -115,11 +121,8 @@ router.post('/book/:token', async (req, res) => {
     }
 
     // Get service details
-    const service = await Service.findOne({
-      _id: new mongoose.Types.ObjectId(service_id),
-      user_id: config.user_id
-    });
-    if (!service) {
+    const service = await findServiceById(service_id);
+    if (!service || service.user_id !== config.user_id) {
       return res.status(400).render('error', { error: 'Serviço inválido.', user: null });
     }
 
@@ -135,13 +138,13 @@ router.post('/book/:token', async (req, res) => {
       });
     }
 
-    const fullDateTime = new Date(`${appointment_date}T${time_slot}`);
+    const fullDateTime = new Date(`${appointment_date}T${time_slot}`).toISOString();
 
     // Determine client_id if logged in
-    const clientId = loggedClient ? new mongoose.Types.ObjectId(loggedClient.id) : null;
+    const clientId = loggedClient ? loggedClient.id : null;
 
     // Create and save appointment with 'Pendente' status
-    const appointment = new Appointment({
+    await createAppointment({
       user_id: config.user_id,
       customer_name: finalName.trim(),
       customer_phone: finalPhone.trim(),
@@ -152,8 +155,6 @@ router.post('/book/:token', async (req, res) => {
       notes: notes ? notes.trim() : '',
       client_id: clientId
     });
-    
-    await appointment.save();
 
     res.redirect(`/book/${token}/success?name=${encodeURIComponent(finalName.trim())}&service=${encodeURIComponent(service.name)}&date=${appointment_date}&time=${time_slot}&client=${loggedClient ? '1' : '0'}`);
   } catch (err) {
@@ -169,7 +170,7 @@ router.post('/book/:token', async (req, res) => {
 router.get('/book/:token/success', async (req, res) => {
   const { token } = req.params;
   try {
-    const config = await BarberConfig.findOne({ booking_token: token });
+    const config = await findConfigByToken(token);
     if (!config) {
       return res.status(404).render('error', { error: 'Link inválido.', user: null });
     }
@@ -188,7 +189,7 @@ router.get('/book/:token/slots', async (req, res) => {
   const { token } = req.params;
   const { date } = req.query;
   try {
-    const config = await BarberConfig.findOne({ booking_token: token });
+    const config = await findConfigByToken(token);
     if (!config || !date) return res.json({ slots: [] });
 
     const allSlots = generateSlots(config.open_time, config.close_time, config.slot_interval);

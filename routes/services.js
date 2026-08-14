@@ -1,32 +1,36 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const { Service, BarberConfig } = require('../database/models');
+const crypto = require('crypto');
+const {
+  createService,
+  findServiceById,
+  findServicesByUser,
+  deleteService,
+  findConfigByUser,
+  createConfig,
+  updateConfig
+} = require('../database/repository');
 const { requireBarber } = require('../middleware/auth');
 
 // GET /services - List all services for the logged-in barber
 router.get('/', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   try {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-    
-    let config = await BarberConfig.findOne({ user_id: userObjectId });
+    let config = await findConfigByUser(userId);
     if (!config) {
-      const crypto = require('crypto');
       const token = crypto.randomBytes(10).toString('hex');
-      config = new BarberConfig({
-        user_id: userObjectId,
+      config = await createConfig({
+        user_id: userId,
         shop_name: 'SAS Barber',
         open_time: '09:00',
         close_time: '20:00',
         slot_interval: 30,
         booking_token: token
       });
-      await config.save();
     }
     const bookingUrl = `${req.protocol}://${req.get('host')}/book/${config.booking_token}`;
 
-    const services = await Service.find({ user_id: userObjectId }).sort({ name: 1 });
+    const services = await findServicesByUser(userId);
     res.render('services/index', {
       user: req.session.user,
       services,
@@ -47,8 +51,7 @@ router.post('/', requireBarber, async (req, res) => {
   const { name, price, duration_min } = req.body;
 
   if (!name || !price) {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-    const services = await Service.find({ user_id: userObjectId }).sort({ name: 1 });
+    const services = await findServicesByUser(userId);
     return res.render('services/index', {
       user: req.session.user,
       services,
@@ -61,8 +64,7 @@ router.post('/', requireBarber, async (req, res) => {
   const durationNum = parseInt(duration_min) || 30;
 
   if (isNaN(priceNum) || priceNum < 0) {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-    const services = await Service.find({ user_id: userObjectId }).sort({ name: 1 });
+    const services = await findServicesByUser(userId);
     return res.render('services/index', {
       user: req.session.user,
       services,
@@ -72,14 +74,12 @@ router.post('/', requireBarber, async (req, res) => {
   }
 
   try {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-    const service = new Service({
-      user_id: userObjectId,
+    await createService({
+      user_id: userId,
       name: name.trim(),
       price: priceNum,
       duration_min: durationNum
     });
-    await service.save();
     res.redirect('/services?success=1');
   } catch (err) {
     console.error('Error creating service:', err);
@@ -92,11 +92,7 @@ router.post('/:id/delete', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const serviceId = req.params.id;
   try {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-    const result = await Service.deleteOne({
-      _id: new mongoose.Types.ObjectId(serviceId),
-      user_id: userObjectId
-    });
+    await deleteService(serviceId, userId);
     res.redirect('/services?success=2');
   } catch (err) {
     console.error('Error deleting service:', err);
@@ -119,17 +115,12 @@ router.post('/config', requireBarber, async (req, res) => {
   }
 
   try {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-    await BarberConfig.findOneAndUpdate(
-      { user_id: userObjectId },
-      {
-        shop_name: shop_name.trim(),
-        open_time,
-        close_time,
-        slot_interval: slotIntervalNum
-      },
-      { new: true }
-    );
+    await updateConfig(userId, {
+      shop_name: shop_name.trim(),
+      open_time,
+      close_time,
+      slot_interval: slotIntervalNum
+    });
     res.redirect('/services?success=config');
   } catch (err) {
     console.error('Error updating config:', err);

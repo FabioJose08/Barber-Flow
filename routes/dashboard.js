@@ -1,147 +1,101 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const { Appointment, Service, BarberConfig } = require('../database/models');
+const crypto = require('crypto');
+const {
+  findAppointments,
+  findServicesByUser,
+  countServicesByUser,
+  insertDefaultServices,
+  findConfigByUser,
+  createConfig,
+  getRevenueAllTime,
+  getRevenueAndCount,
+  getStatusCounts
+} = require('../database/repository');
 const { requireBarber } = require('../middleware/auth');
 
 router.get('/dashboard', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
-  
+
   // Get today's local date YYYY-MM-DD
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   const todayStr = `${year}-${month}-${day}`;
-  
+
   // Format current local date time (YYYY-MM-DDTHH:MM)
   const offset = now.getTimezoneOffset() * 60000;
   const localISO = new Date(now.getTime() - offset).toISOString().slice(0, 16);
-  
-  try {
-    const userObjectId = new mongoose.Types.ObjectId(userId);
 
+  try {
     // Ensure barber_config exists for the user
-    let config = await BarberConfig.findOne({ user_id: userObjectId });
+    let config = await findConfigByUser(userId);
     if (!config) {
-      const crypto = require('crypto');
       const token = crypto.randomBytes(10).toString('hex');
-      config = new BarberConfig({
-        user_id: userObjectId,
+      config = await createConfig({
+        user_id: userId,
         shop_name: 'SAS Barber',
         open_time: '09:00',
         close_time: '20:00',
         slot_interval: 30,
         booking_token: token
       });
-      await config.save();
     }
 
     // Populate default services if none exist
-    const servicesCount = await Service.countDocuments({ user_id: userObjectId });
+    const servicesCount = await countServicesByUser(userId);
     if (servicesCount === 0) {
-      await Service.insertMany([
-        { user_id: userObjectId, name: 'Corte', price: 40.00, duration_min: 30 },
-        { user_id: userObjectId, name: 'Barba', price: 30.00, duration_min: 30 },
-        { user_id: userObjectId, name: 'Pigmentação', price: 25.00, duration_min: 30 },
-        { user_id: userObjectId, name: 'Corte & Barba', price: 65.00, duration_min: 60 }
-      ]);
+      await insertDefaultServices(userId);
     }
 
     // Build the dynamic booking URL
     const bookingUrl = `${req.protocol}://${req.get('host')}/book/${config.booking_token}`;
 
     // Get all active services for preset lists
-    const services = await Service.find({ user_id: userObjectId }).sort({ name: 1 });
+    const services = await findServicesByUser(userId);
 
     // Calculate date boundaries for today
-    const todayStart = new Date(`${todayStr}T00:00:00`);
-    const todayEnd = new Date(`${todayStr}T23:59:59`);
+    const todayStart = `${todayStr}T00:00:00`;
+    const todayEnd = `${todayStr}T23:59:59`;
 
     // 1. Total appointments today (any status except Cancelled)
-    const todayCount = await Appointment.countDocuments({
-      user_id: userObjectId,
-      appointment_date: { $gte: todayStart, $lte: todayEnd },
-      status: { $ne: 'Cancelado' }
+    const todayAppointments = await findAppointments({
+      userId,
+      dateStart: todayStart,
+      dateEnd: todayEnd,
+      excludeStatus: 'Cancelado'
     });
-    
+    const todayCount = todayAppointments.length;
+
     // 2. Total revenue (sum of prices of 'Finalizado' status)
-    const revenueResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId,
-          status: 'Finalizado'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$price' }
-        }
-      }
-    ]);
-    const totalRevenue = revenueResult.length > 0 ? parseFloat(revenueResult[0].total) : 0;
-    
+    const totalRev = await getRevenueAllTime(userId);
+    const totalRevenue = totalRev.total;
+
     // 2.1 Daily revenue (sum of prices of 'Finalizado' today)
-    const dailyRevenueResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId,
-          status: 'Finalizado',
-          appointment_date: { $gte: todayStart, $lte: todayEnd }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$price' }
-        }
-      }
-    ]);
-    const dailyRevenue = dailyRevenueResult.length > 0 ? parseFloat(dailyRevenueResult[0].total) : 0;
-    
+    const dailyRev = await getRevenueAndCount(userId, todayStart, todayEnd);
+    const dailyRevenue = dailyRev.total;
+
     // 3. Status counts
-    const statusCountsResult = await Appointment.aggregate([
-      {
-        $match: {
-          user_id: userObjectId
-        }
-      },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-    
-    const statusStats = {
-      'Pendente': 0,
-      'Agendado': 0,
-      'Em Andamento': 0,
-      'Finalizado': 0,
-      'Cancelado': 0
-    };
-    
-    statusCountsResult.forEach(row => {
-      if (statusStats[row._id] !== undefined) {
-        statusStats[row._id] = row.count;
-      }
-    });
-    
+    const statusStats = await getStatusCounts(userId);
+
     // 4. Next upcoming appointments (status = Pendente, Agendado or Em Andamento)
-    const localDateTime = new Date(localISO);
-    const upcomingAppointments = await Appointment.find({
-      user_id: userObjectId,
-      $or: [
-        { status: 'Pendente' },
-        {
-          status: { $in: ['Agendado', 'Em Andamento'] },
-          appointment_date: { $gte: localDateTime }
-        }
-      ]
-    }).sort({ appointment_date: 1 }).limit(10);
-    
+    const allActive = await findAppointments({
+      userId,
+      excludeStatus: 'Cancelado'
+    });
+
+    // Filter: Pendente always, others only if date/time is in the future
+    const localDateTime = new Date(localISO).getTime();
+    const upcomingAppointments = allActive
+      .filter(a => {
+        const apptTime = new Date(a.appointment_date).getTime();
+        if (a.status === 'Pendente') return true;
+        return apptTime >= localDateTime;
+      })
+      .sort((a, b) => new Date(a.appointment_date).getTime() - new Date(b.appointment_date).getTime())
+      .slice(0, 10);
+
     res.render('dashboard', {
       user: req.session.user,
       todayCount,
@@ -156,9 +110,9 @@ router.get('/dashboard', requireBarber, async (req, res) => {
     });
   } catch (err) {
     console.error('Error rendering dashboard:', err);
-    res.status(500).render('error', { 
-      error: 'Erro interno ao processar dados do painel.', 
-      user: req.session.user 
+    res.status(500).render('error', {
+      error: 'Erro interno ao processar dados do painel.',
+      user: req.session.user
     });
   }
 });
