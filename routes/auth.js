@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createUser, findUserByEmail } = require('../database/repository');
-const { admin } = require('../database/firebase');
+const { auth } = require('../database/firebase');
 const { redirectIfAuthenticated } = require('../middleware/auth');
 
 /**
@@ -69,12 +69,12 @@ router.post('/auth/google', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Token não fornecido.' });
     }
 
-    if (!admin) {
+    if (!auth) {
       return res.status(503).json({ success: false, error: 'Firebase não configurado. Google Sign-In indisponível.' });
     }
 
     // Verify the Google ID token with Firebase Admin
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await auth.verifyIdToken(idToken);
     const email = decodedToken.email;
     const name = decodedToken.name || email.split('@')[0];
 
@@ -136,12 +136,12 @@ router.post('/client/auth/google', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Token não fornecido.' });
     }
 
-    if (!admin) {
+    if (!auth) {
       return res.status(503).json({ success: false, error: 'Firebase não configurado. Google Sign-In indisponível.' });
     }
 
     // Verify the Google ID token with Firebase Admin
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await auth.verifyIdToken(idToken);
     const email = decodedToken.email;
     const name = decodedToken.name || email.split('@')[0];
 

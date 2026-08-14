@@ -29,11 +29,13 @@ const hasCredentials =
 let db;
 let FieldValue;
 let firebaseAdmin = null;
+let firebaseAuth = null;
 
 if (hasCredentials) {
   try {
     const admin = require('firebase-admin');
     const { getFirestore, FieldValue: FirestoreFieldValue } = require('firebase-admin/firestore');
+    const { getAuth } = require('firebase-admin/auth');
 
     if (!admin.getApps().length) {
       admin.initializeApp({
@@ -51,6 +53,7 @@ if (hasCredentials) {
     db = getFirestore();
     FieldValue = FirestoreFieldValue;
     firebaseAdmin = admin;
+    firebaseAuth = getAuth();
     console.log('Firebase Firestore conectado com sucesso!');
   } catch (err) {
     console.error('Falha ao inicializar Firebase Admin:', err.message);
@@ -66,4 +69,4 @@ if (hasCredentials) {
   FieldValue = MemoryFieldValue;
 }
 
-module.exports = { db, FieldValue, admin: firebaseAdmin };
+module.exports = { db, FieldValue, admin: firebaseAdmin, auth: firebaseAuth };
