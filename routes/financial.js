@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database/db');
+const mongoose = require('mongoose');
+const { Appointment } = require('../database/models');
 const { requireBarber } = require('../middleware/auth');
 
-router.get('/financial', requireBarber, (req, res) => {
+router.get('/financial', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
 
   const now = new Date();
@@ -54,78 +55,160 @@ router.get('/financial', requireBarber, (req, res) => {
   }
 
   try {
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const todayStart = new Date(`${todayStr}T00:00:00`);
+    const todayEnd = new Date(`${todayStr}T23:59:59`);
+    const weekStartDate = new Date(`${weekStart}T00:00:00`);
+    const weekEndDate = new Date(`${weekEnd}T23:59:59`);
+    const monthStartDate = new Date(`${monthStart}T00:00:00`);
+    const nextMonthDate = new Date(`${nextMonthStr}T00:00:00`);
+    const filterStartDate = new Date(`${filterStart}T00:00:00`);
+    const filterEndDate = new Date(`${filterEnd}T23:59:59`);
+
     // Revenue today
-    const todayRevStmt = db.prepare(`
-      SELECT COALESCE(SUM(price), 0) as total, COUNT(*) as count
-      FROM appointments WHERE user_id = ? AND status = 'Finalizado' AND appointment_date LIKE ?
-    `);
-    const todayRev = todayRevStmt.get(userId, `${todayStr}%`);
+    const todayRevResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          status: 'Finalizado',
+          appointment_date: { $gte: todayStart, $lte: todayEnd }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$price' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    const todayRev = todayRevResult.length > 0 ? todayRevResult[0] : { total: 0, count: 0 };
 
     // Revenue this week
-    const weekRevStmt = db.prepare(`
-      SELECT COALESCE(SUM(price), 0) as total, COUNT(*) as count
-      FROM appointments WHERE user_id = ? AND status = 'Finalizado'
-      AND appointment_date >= ? AND appointment_date <= ?
-    `);
-    const weekRev = weekRevStmt.get(userId, `${weekStart}T00:00`, `${weekEnd}T23:59`);
+    const weekRevResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          status: 'Finalizado',
+          appointment_date: { $gte: weekStartDate, $lte: weekEndDate }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$price' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    const weekRev = weekRevResult.length > 0 ? weekRevResult[0] : { total: 0, count: 0 };
 
     // Revenue this month
-    const monthRevStmt = db.prepare(`
-      SELECT COALESCE(SUM(price), 0) as total, COUNT(*) as count
-      FROM appointments WHERE user_id = ? AND status = 'Finalizado'
-      AND appointment_date >= ? AND appointment_date < ?
-    `);
-    const monthRev = monthRevStmt.get(userId, `${monthStart}T00:00`, `${nextMonthStr}T00:00`);
+    const monthRevResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          status: 'Finalizado',
+          appointment_date: { $gte: monthStartDate, $lt: nextMonthDate }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$price' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    const monthRev = monthRevResult.length > 0 ? monthRevResult[0] : { total: 0, count: 0 };
 
     // Revenue total (all time)
-    const totalRevStmt = db.prepare(`
-      SELECT COALESCE(SUM(price), 0) as total, COUNT(*) as count
-      FROM appointments WHERE user_id = ? AND status = 'Finalizado'
-    `);
-    const totalRev = totalRevStmt.get(userId);
+    const totalRevResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          status: 'Finalizado'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$price' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    const totalRev = totalRevResult.length > 0 ? totalRevResult[0] : { total: 0, count: 0 };
 
     // Filtered detailed appointments list
-    const detailStmt = db.prepare(`
-      SELECT * FROM appointments
-      WHERE user_id = ? AND status = 'Finalizado'
-      AND appointment_date >= ? AND appointment_date <= ?
-      ORDER BY appointment_date DESC
-    `);
-    const detailAppointments = detailStmt.all(userId, `${filterStart}T00:00`, `${filterEnd}T23:59`);
+    const detailAppointments = await Appointment.find({
+      user_id: userObjectId,
+      status: 'Finalizado',
+      appointment_date: { $gte: filterStartDate, $lte: filterEndDate }
+    }).sort({ appointment_date: -1 });
 
     // Revenue per service (filtered period)
-    const serviceBreakdownStmt = db.prepare(`
-      SELECT service_type, COUNT(*) as count, SUM(price) as total
-      FROM appointments
-      WHERE user_id = ? AND status = 'Finalizado'
-      AND appointment_date >= ? AND appointment_date <= ?
-      GROUP BY service_type
-      ORDER BY total DESC
-    `);
-    const serviceBreakdown = serviceBreakdownStmt.all(userId, `${filterStart}T00:00`, `${filterEnd}T23:59`);
+    const serviceBreakdownResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          status: 'Finalizado',
+          appointment_date: { $gte: filterStartDate, $lte: filterEndDate }
+        }
+      },
+      {
+        $group: {
+          _id: '$service_type',
+          count: { $sum: 1 },
+          total: { $sum: '$price' }
+        }
+      },
+      {
+        $sort: { total: -1 }
+      }
+    ]);
+    const serviceBreakdown = serviceBreakdownResult;
 
     // Revenue per day (last 7 days) for mini chart
-    const dailyStmt = db.prepare(`
-      SELECT DATE(appointment_date) as day, COALESCE(SUM(price), 0) as total
-      FROM appointments
-      WHERE user_id = ? AND status = 'Finalizado'
-      AND appointment_date >= ? AND appointment_date <= ?
-      GROUP BY day ORDER BY day ASC
-    `);
-
-    // Build last 7 days array
     const last7Days = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(localNow);
       d.setDate(localNow.getDate() - i);
       last7Days.push(d.toISOString().slice(0, 10));
     }
-    const dailyRaw = dailyStmt.all(userId,
-      `${last7Days[0]}T00:00`,
-      `${last7Days[6]}T23:59`
-    );
+
+    const dailyRevenueResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          status: 'Finalizado',
+          appointment_date: {
+            $gte: new Date(`${last7Days[0]}T00:00:00`),
+            $lte: new Date(`${last7Days[6]}T23:59:59`)
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: '$appointment_date'
+            }
+          },
+          total: { $sum: '$price' }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
     const dailyMap = {};
-    dailyRaw.forEach(r => { dailyMap[r.day] = r.total; });
+    dailyRevenueResult.forEach(r => {
+      dailyMap[r._id] = r.total;
+    });
+    
     const chartData = last7Days.map(d => ({
       day: d,
       label: new Date(d + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
@@ -134,9 +217,10 @@ router.get('/financial', requireBarber, (req, res) => {
     const chartMax = Math.max(...chartData.map(d => d.total), 1);
 
     // Pending count for badge
-    const pendingStmt = db.prepare(`SELECT COUNT(*) as count FROM appointments WHERE user_id = ? AND status = 'Pendente'`);
-    const pendingResult = pendingStmt.get(userId);
-    const pendingCount = pendingResult ? pendingResult.count : 0;
+    const pendingCount = await Appointment.countDocuments({
+      user_id: userObjectId,
+      status: 'Pendente'
+    });
 
     res.render('financial/index', {
       user: req.session.user,

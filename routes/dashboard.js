@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database/db');
+const mongoose = require('mongoose');
+const { Appointment, Service, BarberConfig } = require('../database/models');
 const { requireBarber } = require('../middleware/auth');
 
-router.get('/dashboard', requireBarber, (req, res) => {
+router.get('/dashboard', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   
   // Get today's local date YYYY-MM-DD
@@ -18,71 +19,101 @@ router.get('/dashboard', requireBarber, (req, res) => {
   const localISO = new Date(now.getTime() - offset).toISOString().slice(0, 16);
   
   try {
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
     // Ensure barber_config exists for the user
-    let config = db.prepare('SELECT * FROM barber_config WHERE user_id = ?').get(userId);
+    let config = await BarberConfig.findOne({ user_id: userObjectId });
     if (!config) {
       const crypto = require('crypto');
       const token = crypto.randomBytes(10).toString('hex');
-      db.prepare(`
-        INSERT INTO barber_config (user_id, shop_name, open_time, close_time, slot_interval, booking_token)
-        VALUES (?, 'SAS Barber', '09:00', '20:00', 30, ?)
-      `).run(userId, token);
-      config = db.prepare('SELECT * FROM barber_config WHERE user_id = ?').get(userId);
+      config = new BarberConfig({
+        user_id: userObjectId,
+        shop_name: 'SAS Barber',
+        open_time: '09:00',
+        close_time: '20:00',
+        slot_interval: 30,
+        booking_token: token
+      });
+      await config.save();
     }
 
     // Populate default services if none exist
-    const servicesCountResult = db.prepare('SELECT COUNT(*) as count FROM services WHERE user_id = ?').get(userId);
-    const servicesCount = servicesCountResult ? servicesCountResult.count : 0;
+    const servicesCount = await Service.countDocuments({ user_id: userObjectId });
     if (servicesCount === 0) {
-      const insertService = db.prepare('INSERT INTO services (user_id, name, price, duration_min) VALUES (?, ?, ?, ?)');
-      insertService.run(userId, 'Corte', 40.00, 30);
-      insertService.run(userId, 'Barba', 30.00, 30);
-      insertService.run(userId, 'Pigmentação', 25.00, 30);
-      insertService.run(userId, 'Corte & Barba', 65.00, 60);
+      await Service.insertMany([
+        { user_id: userObjectId, name: 'Corte', price: 40.00, duration_min: 30 },
+        { user_id: userObjectId, name: 'Barba', price: 30.00, duration_min: 30 },
+        { user_id: userObjectId, name: 'Pigmentação', price: 25.00, duration_min: 30 },
+        { user_id: userObjectId, name: 'Corte & Barba', price: 65.00, duration_min: 60 }
+      ]);
     }
 
     // Build the dynamic booking URL
     const bookingUrl = `${req.protocol}://${req.get('host')}/book/${config.booking_token}`;
 
     // Get all active services for preset lists
-    const servicesStmt = db.prepare('SELECT * FROM services WHERE user_id = ? ORDER BY name ASC');
-    const services = servicesStmt.all(userId);
+    const services = await Service.find({ user_id: userObjectId }).sort({ name: 1 });
+
+    // Calculate date boundaries for today
+    const todayStart = new Date(`${todayStr}T00:00:00`);
+    const todayEnd = new Date(`${todayStr}T23:59:59`);
 
     // 1. Total appointments today (any status except Cancelled)
-    const todayCountStmt = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM appointments 
-      WHERE user_id = ? AND appointment_date LIKE ? AND status != 'Cancelado'
-    `);
-    const todayCountResult = todayCountStmt.get(userId, `${todayStr}%`);
-    const todayCount = todayCountResult ? todayCountResult.count : 0;
+    const todayCount = await Appointment.countDocuments({
+      user_id: userObjectId,
+      appointment_date: { $gte: todayStart, $lte: todayEnd },
+      status: { $ne: 'Cancelado' }
+    });
     
     // 2. Total revenue (sum of prices of 'Finalizado' status)
-    const revenueStmt = db.prepare(`
-      SELECT SUM(price) as total 
-      FROM appointments 
-      WHERE user_id = ? AND status = 'Finalizado'
-    `);
-    const revenueResult = revenueStmt.get(userId);
-    const totalRevenue = revenueResult && revenueResult.total ? parseFloat(revenueResult.total) : 0;
+    const revenueResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          status: 'Finalizado'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$price' }
+        }
+      }
+    ]);
+    const totalRevenue = revenueResult.length > 0 ? parseFloat(revenueResult[0].total) : 0;
     
     // 2.1 Daily revenue (sum of prices of 'Finalizado' today)
-    const dailyRevenueStmt = db.prepare(`
-      SELECT SUM(price) as total 
-      FROM appointments 
-      WHERE user_id = ? AND status = 'Finalizado' AND appointment_date LIKE ?
-    `);
-    const dailyRevenueResult = dailyRevenueStmt.get(userId, `${todayStr}%`);
-    const dailyRevenue = dailyRevenueResult && dailyRevenueResult.total ? parseFloat(dailyRevenueResult.total) : 0;
+    const dailyRevenueResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId,
+          status: 'Finalizado',
+          appointment_date: { $gte: todayStart, $lte: todayEnd }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$price' }
+        }
+      }
+    ]);
+    const dailyRevenue = dailyRevenueResult.length > 0 ? parseFloat(dailyRevenueResult[0].total) : 0;
     
     // 3. Status counts
-    const statusCountsStmt = db.prepare(`
-      SELECT status, COUNT(*) as count 
-      FROM appointments 
-      WHERE user_id = ? 
-      GROUP BY status
-    `);
-    const statusCountsResult = statusCountsStmt.all(userId);
+    const statusCountsResult = await Appointment.aggregate([
+      {
+        $match: {
+          user_id: userObjectId
+        }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
     
     const statusStats = {
       'Pendente': 0,
@@ -93,21 +124,23 @@ router.get('/dashboard', requireBarber, (req, res) => {
     };
     
     statusCountsResult.forEach(row => {
-      const statusName = row.status;
-      if (statusStats[statusName] !== undefined) {
-        statusStats[statusName] = row.count;
+      if (statusStats[row._id] !== undefined) {
+        statusStats[row._id] = row.count;
       }
     });
     
     // 4. Next upcoming appointments (status = Pendente, Agendado or Em Andamento)
-    const upcomingStmt = db.prepare(`
-      SELECT * 
-      FROM appointments 
-      WHERE user_id = ? AND (status = 'Pendente' OR (status IN ('Agendado', 'Em Andamento') AND appointment_date >= ?))
-      ORDER BY appointment_date ASC 
-      LIMIT 10
-    `);
-    const upcomingAppointments = upcomingStmt.all(userId, localISO);
+    const localDateTime = new Date(localISO);
+    const upcomingAppointments = await Appointment.find({
+      user_id: userObjectId,
+      $or: [
+        { status: 'Pendente' },
+        {
+          status: { $in: ['Agendado', 'Em Andamento'] },
+          appointment_date: { $gte: localDateTime }
+        }
+      ]
+    }).sort({ appointment_date: 1 }).limit(10);
     
     res.render('dashboard', {
       user: req.session.user,

@@ -1,27 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database/db');
+const mongoose = require('mongoose');
+const { Appointment, Service } = require('../database/models');
 const { requireBarber } = require('../middleware/auth');
 
 // GET /appointments - List and filter appointments
-router.get('/', requireBarber, (req, res) => {
+router.get('/', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const { date_filter, status_filter, search } = req.query;
 
   try {
-    let query = 'SELECT * FROM appointments WHERE user_id = ?';
-    const params = [userId];
+    const filter = { user_id: new mongoose.Types.ObjectId(userId) };
 
     // Search by customer name
     if (search && search.trim() !== '') {
-      query += ' AND customer_name LIKE ?';
-      params.push(`%${search.trim()}%`);
+      filter.customer_name = { $regex: search.trim(), $options: 'i' };
     }
 
     // Filter by status
     if (status_filter && status_filter !== 'all') {
-      query += ' AND status = ?';
-      params.push(status_filter);
+      filter.status = status_filter;
     }
 
     // Filter by date
@@ -33,8 +31,9 @@ router.get('/', requireBarber, (req, res) => {
       const todayStr = `${year}-${month}-${day}`;
 
       if (date_filter === 'today') {
-        query += ' AND appointment_date LIKE ?';
-        params.push(`${todayStr}%`);
+        const todayStart = new Date(`${todayStr}T00:00:00`);
+        const todayEnd = new Date(`${todayStr}T23:59:59`);
+        filter.appointment_date = { $gte: todayStart, $lte: todayEnd };
       } else if (date_filter === 'tomorrow') {
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -42,34 +41,24 @@ router.get('/', requireBarber, (req, res) => {
         const tm = String(tomorrow.getMonth() + 1).padStart(2, '0');
         const td = String(tomorrow.getDate()).padStart(2, '0');
         const tomorrowStr = `${ty}-${tm}-${td}`;
-
-        query += ' AND appointment_date LIKE ?';
-        params.push(`${tomorrowStr}%`);
+        const tomorrowStart = new Date(`${tomorrowStr}T00:00:00`);
+        const tomorrowEnd = new Date(`${tomorrowStr}T23:59:59`);
+        filter.appointment_date = { $gte: tomorrowStart, $lte: tomorrowEnd };
       } else if (date_filter === 'week') {
         const weekEnd = new Date(now);
         weekEnd.setDate(weekEnd.getDate() + 7);
-        const wy = weekEnd.getFullYear();
-        const wm = String(weekEnd.getMonth() + 1).padStart(2, '0');
-        const wd = String(weekEnd.getDate()).padStart(2, '0');
-        const weekEndStr = `${wy}-${wm}-${wd}T23:59`;
-
-        query += ' AND appointment_date >= ? AND appointment_date <= ?';
-        params.push(`${todayStr}T00:00`, weekEndStr);
+        const weekStart = new Date(`${todayStr}T00:00:00`);
+        filter.appointment_date = { $gte: weekStart, $lte: weekEnd };
       } else if (/^\d{4}-\d{2}-\d{2}$/.test(date_filter)) {
         // Specific date selected
-        query += ' AND appointment_date LIKE ?';
-        params.push(`${date_filter}%`);
+        const dateStart = new Date(`${date_filter}T00:00:00`);
+        const dateEnd = new Date(`${date_filter}T23:59:59`);
+        filter.appointment_date = { $gte: dateStart, $lte: dateEnd };
       }
     }
 
-    // Order by date (earliest first)
-    query += ' ORDER BY appointment_date ASC';
-
-    const stmt = db.prepare(query);
-    const appointments = stmt.all(...params);
-
-    const servicesStmt = db.prepare('SELECT * FROM services WHERE user_id = ? ORDER BY name ASC');
-    const services = servicesStmt.all(userId);
+    const appointments = await Appointment.find(filter).sort({ appointment_date: 1 });
+    const services = await Service.find({ user_id: new mongoose.Types.ObjectId(userId) }).sort({ name: 1 });
 
     res.render('appointments/index', {
       user: req.session.user,
@@ -91,7 +80,7 @@ router.get('/', requireBarber, (req, res) => {
 });
 
 // GET /appointments/new - Form to create a new appointment
-router.get('/new', requireBarber, (req, res) => {
+router.get('/new', requireBarber, async (req, res) => {
   // Get current local datetime formatted for input field (YYYY-MM-DDTHH:MM)
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60000;
@@ -99,8 +88,7 @@ router.get('/new', requireBarber, (req, res) => {
 
   try {
     const userId = req.session.user.id;
-    const servicesStmt = db.prepare('SELECT * FROM services WHERE user_id = ? ORDER BY name ASC');
-    const services = servicesStmt.all(userId);
+    const services = await Service.find({ user_id: new mongoose.Types.ObjectId(userId) }).sort({ name: 1 });
 
     res.render('appointments/new', {
       user: req.session.user,
@@ -116,7 +104,7 @@ router.get('/new', requireBarber, (req, res) => {
 });
 
 // POST /appointments - Create new appointment
-router.post('/', requireBarber, (req, res) => {
+router.post('/', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const { customer_name, customer_phone, service_type, price, status, appointment_date, notes } = req.body;
 
@@ -152,22 +140,19 @@ router.post('/', requireBarber, (req, res) => {
       });
     }
 
-    // Insert appointment
-    const stmt = db.prepare(`
-      INSERT INTO appointments (user_id, customer_name, customer_phone, service_type, price, status, appointment_date, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    
-    stmt.run(
-      userId,
-      customer_name.trim(),
-      customer_phone.trim(),
-      service_type.trim(),
-      priceNum,
+    // Create and save appointment
+    const appointment = new Appointment({
+      user_id: new mongoose.Types.ObjectId(userId),
+      customer_name: customer_name.trim(),
+      customer_phone: customer_phone.trim(),
+      service_type: service_type.trim(),
+      price: priceNum,
       status,
-      appointment_date, // stored as YYYY-MM-DDTHH:MM
-      notes ? notes.trim() : ''
-    );
+      appointment_date: new Date(appointment_date),
+      notes: notes ? notes.trim() : ''
+    });
+    
+    await appointment.save();
 
     res.redirect('/appointments');
   } catch (err) {
@@ -182,13 +167,15 @@ router.post('/', requireBarber, (req, res) => {
 });
 
 // GET /appointments/:id/edit - Form to edit appointment
-router.get('/:id/edit', requireBarber, (req, res) => {
+router.get('/:id/edit', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const appointmentId = req.params.id;
 
   try {
-    const stmt = db.prepare('SELECT * FROM appointments WHERE id = ? AND user_id = ?');
-    const appointment = stmt.get(appointmentId, userId);
+    const appointment = await Appointment.findOne({
+      _id: new mongoose.Types.ObjectId(appointmentId),
+      user_id: new mongoose.Types.ObjectId(userId)
+    });
 
     if (!appointment) {
       return res.status(404).render('error', { 
@@ -212,15 +199,17 @@ router.get('/:id/edit', requireBarber, (req, res) => {
 });
 
 // POST /appointments/:id/edit - Save edited appointment
-router.post('/:id/edit', requireBarber, (req, res) => {
+router.post('/:id/edit', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const appointmentId = req.params.id;
   const { customer_name, customer_phone, service_type, price, status, appointment_date, notes } = req.body;
 
   try {
     // Verify ownership
-    const checkStmt = db.prepare('SELECT id FROM appointments WHERE id = ? AND user_id = ?');
-    const appointment = checkStmt.get(appointmentId, userId);
+    const appointment = await Appointment.findOne({
+      _id: new mongoose.Types.ObjectId(appointmentId),
+      user_id: new mongoose.Types.ObjectId(userId)
+    });
 
     if (!appointment) {
       return res.status(404).render('error', { 
@@ -232,7 +221,7 @@ router.post('/:id/edit', requireBarber, (req, res) => {
     if (!customer_name || !customer_phone || !service_type || !price || !status || !appointment_date) {
       return res.render('appointments/edit', {
         user: req.session.user,
-        appointment: { id: appointmentId, customer_name, customer_phone, service_type, price, status, appointment_date, notes },
+        appointment: { _id: appointmentId, customer_name, customer_phone, service_type, price, status, appointment_date, notes },
         error: 'Preencha todos os campos obrigatórios.'
       });
     }
@@ -241,28 +230,24 @@ router.post('/:id/edit', requireBarber, (req, res) => {
     if (isNaN(priceNum) || priceNum < 0) {
       return res.render('appointments/edit', {
         user: req.session.user,
-        appointment: { id: appointmentId, customer_name, customer_phone, service_type, price, status, appointment_date, notes },
+        appointment: { _id: appointmentId, customer_name, customer_phone, service_type, price, status, appointment_date, notes },
         error: 'O preço deve ser um valor numérico válido.'
       });
     }
 
     // Update appointment
-    const updateStmt = db.prepare(`
-      UPDATE appointments 
-      SET customer_name = ?, customer_phone = ?, service_type = ?, price = ?, status = ?, appointment_date = ?, notes = ?
-      WHERE id = ? AND user_id = ?
-    `);
-
-    updateStmt.run(
-      customer_name.trim(),
-      customer_phone.trim(),
-      service_type.trim(),
-      priceNum,
-      status,
-      appointment_date,
-      notes ? notes.trim() : '',
-      appointmentId,
-      userId
+    await Appointment.findByIdAndUpdate(
+      new mongoose.Types.ObjectId(appointmentId),
+      {
+        customer_name: customer_name.trim(),
+        customer_phone: customer_phone.trim(),
+        service_type: service_type.trim(),
+        price: priceNum,
+        status,
+        appointment_date: new Date(appointment_date),
+        notes: notes ? notes.trim() : ''
+      },
+      { new: true }
     );
 
     res.redirect('/appointments');
@@ -276,15 +261,17 @@ router.post('/:id/edit', requireBarber, (req, res) => {
 });
 
 // POST /appointments/:id/delete - Delete appointment
-router.post('/:id/delete', requireBarber, (req, res) => {
+router.post('/:id/delete', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const appointmentId = req.params.id;
 
   try {
-    const deleteStmt = db.prepare('DELETE FROM appointments WHERE id = ? AND user_id = ?');
-    const result = deleteStmt.run(appointmentId, userId);
+    const result = await Appointment.deleteOne({
+      _id: new mongoose.Types.ObjectId(appointmentId),
+      user_id: new mongoose.Types.ObjectId(userId)
+    });
 
-    if (result.changes === 0) {
+    if (result.deletedCount === 0) {
       return res.status(404).render('error', { 
         error: 'Agendamento não encontrado ou não pertence a você.', 
         user: req.session.user 
@@ -304,7 +291,7 @@ router.post('/:id/delete', requireBarber, (req, res) => {
 });
 
 // POST /appointments/:id/status - Quick update status of an appointment
-router.post('/:id/status', requireBarber, (req, res) => {
+router.post('/:id/status', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const appointmentId = req.params.id;
   const { status } = req.body;
@@ -315,10 +302,13 @@ router.post('/:id/status', requireBarber, (req, res) => {
       return res.status(400).send('Status inválido.');
     }
 
-    const updateStmt = db.prepare('UPDATE appointments SET status = ? WHERE id = ? AND user_id = ?');
-    const result = updateStmt.run(status, appointmentId, userId);
+    const result = await Appointment.findByIdAndUpdate(
+      new mongoose.Types.ObjectId(appointmentId),
+      { status },
+      { new: true }
+    );
 
-    if (result.changes === 0) {
+    if (!result || result.user_id.toString() !== userId) {
       return res.status(404).render('error', { 
         error: 'Agendamento não encontrado ou não autorizado.', 
         user: req.session.user 
@@ -337,7 +327,7 @@ router.post('/:id/status', requireBarber, (req, res) => {
 });
 
 // POST /appointments/:id/finalize - Finalize an appointment with actual price and service type
-router.post('/:id/finalize', requireBarber, (req, res) => {
+router.post('/:id/finalize', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const appointmentId = req.params.id;
   const { service_type, price, notes } = req.body;
@@ -348,14 +338,24 @@ router.post('/:id/finalize', requireBarber, (req, res) => {
       return res.status(400).send('Preço inválido.');
     }
 
-    const updateStmt = db.prepare(`
-      UPDATE appointments 
-      SET status = 'Finalizado', service_type = ?, price = ?, notes = COALESCE(NULLIF(?, ''), notes)
-      WHERE id = ? AND user_id = ?
-    `);
-    const result = updateStmt.run(service_type.trim(), priceNum, notes ? notes.trim() : '', appointmentId, userId);
+    const updateData = {
+      status: 'Finalizado',
+      service_type: service_type.trim(),
+      price: priceNum
+    };
 
-    if (result.changes === 0) {
+    // Only update notes if provided
+    if (notes && notes.trim()) {
+      updateData.notes = notes.trim();
+    }
+
+    const result = await Appointment.findByIdAndUpdate(
+      new mongoose.Types.ObjectId(appointmentId),
+      updateData,
+      { new: true }
+    );
+
+    if (!result || result.user_id.toString() !== userId) {
       return res.status(404).render('error', { 
         error: 'Agendamento não encontrado ou não autorizado.', 
         user: req.session.user 

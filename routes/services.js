@@ -1,26 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database/db');
+const mongoose = require('mongoose');
+const { Service, BarberConfig } = require('../database/models');
 const { requireBarber } = require('../middleware/auth');
 
 // GET /services - List all services for the logged-in barber
-router.get('/', requireBarber, (req, res) => {
+router.get('/', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   try {
-    let config = db.prepare('SELECT * FROM barber_config WHERE user_id = ?').get(userId);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    
+    let config = await BarberConfig.findOne({ user_id: userObjectId });
     if (!config) {
       const crypto = require('crypto');
       const token = crypto.randomBytes(10).toString('hex');
-      db.prepare(`
-        INSERT INTO barber_config (user_id, shop_name, open_time, close_time, slot_interval, booking_token)
-        VALUES (?, 'SAS Barber', '09:00', '20:00', 30, ?)
-      `).run(userId, token);
-      config = db.prepare('SELECT * FROM barber_config WHERE user_id = ?').get(userId);
+      config = new BarberConfig({
+        user_id: userObjectId,
+        shop_name: 'SAS Barber',
+        open_time: '09:00',
+        close_time: '20:00',
+        slot_interval: 30,
+        booking_token: token
+      });
+      await config.save();
     }
     const bookingUrl = `${req.protocol}://${req.get('host')}/book/${config.booking_token}`;
 
-    const stmt = db.prepare('SELECT * FROM services WHERE user_id = ? ORDER BY name ASC');
-    const services = stmt.all(userId);
+    const services = await Service.find({ user_id: userObjectId }).sort({ name: 1 });
     res.render('services/index', {
       user: req.session.user,
       services,
@@ -36,13 +42,13 @@ router.get('/', requireBarber, (req, res) => {
 });
 
 // POST /services - Create a new service
-router.post('/', requireBarber, (req, res) => {
+router.post('/', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const { name, price, duration_min } = req.body;
 
   if (!name || !price) {
-    const stmt = db.prepare('SELECT * FROM services WHERE user_id = ? ORDER BY name ASC');
-    const services = stmt.all(userId);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const services = await Service.find({ user_id: userObjectId }).sort({ name: 1 });
     return res.render('services/index', {
       user: req.session.user,
       services,
@@ -55,8 +61,8 @@ router.post('/', requireBarber, (req, res) => {
   const durationNum = parseInt(duration_min) || 30;
 
   if (isNaN(priceNum) || priceNum < 0) {
-    const stmt = db.prepare('SELECT * FROM services WHERE user_id = ? ORDER BY name ASC');
-    const services = stmt.all(userId);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const services = await Service.find({ user_id: userObjectId }).sort({ name: 1 });
     return res.render('services/index', {
       user: req.session.user,
       services,
@@ -66,8 +72,14 @@ router.post('/', requireBarber, (req, res) => {
   }
 
   try {
-    const stmt = db.prepare('INSERT INTO services (user_id, name, price, duration_min) VALUES (?, ?, ?, ?)');
-    stmt.run(userId, name.trim(), priceNum, durationNum);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const service = new Service({
+      user_id: userObjectId,
+      name: name.trim(),
+      price: priceNum,
+      duration_min: durationNum
+    });
+    await service.save();
     res.redirect('/services?success=1');
   } catch (err) {
     console.error('Error creating service:', err);
@@ -76,12 +88,15 @@ router.post('/', requireBarber, (req, res) => {
 });
 
 // POST /services/:id/delete - Delete a service
-router.post('/:id/delete', requireBarber, (req, res) => {
+router.post('/:id/delete', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const serviceId = req.params.id;
   try {
-    const stmt = db.prepare('DELETE FROM services WHERE id = ? AND user_id = ?');
-    stmt.run(serviceId, userId);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const result = await Service.deleteOne({
+      _id: new mongoose.Types.ObjectId(serviceId),
+      user_id: userObjectId
+    });
     res.redirect('/services?success=2');
   } catch (err) {
     console.error('Error deleting service:', err);
@@ -90,7 +105,7 @@ router.post('/:id/delete', requireBarber, (req, res) => {
 });
 
 // POST /services/config - Update barber configuration (shop name, times, slot interval)
-router.post('/config', requireBarber, (req, res) => {
+router.post('/config', requireBarber, async (req, res) => {
   const userId = req.session.user.id;
   const { shop_name, open_time, close_time, slot_interval } = req.body;
 
@@ -104,12 +119,17 @@ router.post('/config', requireBarber, (req, res) => {
   }
 
   try {
-    const stmt = db.prepare(`
-      UPDATE barber_config 
-      SET shop_name = ?, open_time = ?, close_time = ?, slot_interval = ?
-      WHERE user_id = ?
-    `);
-    stmt.run(shop_name.trim(), open_time, close_time, slotIntervalNum, userId);
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    await BarberConfig.findOneAndUpdate(
+      { user_id: userObjectId },
+      {
+        shop_name: shop_name.trim(),
+        open_time,
+        close_time,
+        slot_interval: slotIntervalNum
+      },
+      { new: true }
+    );
     res.redirect('/services?success=config');
   } catch (err) {
     console.error('Error updating config:', err);

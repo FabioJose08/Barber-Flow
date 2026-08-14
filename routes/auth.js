@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const db = require('../database/db');
+const { User } = require('../database/models');
 const { redirectIfAuthenticated } = require('../middleware/auth');
 
 function createSession(req, res, user, redirectUrl) {
@@ -15,7 +15,7 @@ function createSession(req, res, user, redirectUrl) {
     }
 
     req.session.user = {
-      id: user.id,
+      id: user._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role || 'cliente',
@@ -67,8 +67,7 @@ router.post('/register', redirectIfAuthenticated, async (req, res) => {
     }
 
     // Check if user already exists
-    const checkStmt = db.prepare('SELECT id FROM users WHERE email = ?');
-    const existingUser = checkStmt.get(email.trim().toLowerCase());
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (existingUser) {
       return res.render('register', { error: 'Este e-mail já está cadastrado.', success: null, data: inputData });
@@ -77,17 +76,17 @@ router.post('/register', redirectIfAuthenticated, async (req, res) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user as barber
-    const insertStmt = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)');
-    const result = insertStmt.run(name.trim(), email.trim().toLowerCase(), hashedPassword, 'barbeiro');
-
-    createSession(req, res, {
-      id: Number(result.lastInsertRowid),
+    // Create new barber user
+    const newUser = new User({
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      role: 'barbeiro',
-      phone: null
-    }, '/dashboard');
+      password: hashedPassword,
+      role: 'barbeiro'
+    });
+
+    await newUser.save();
+
+    createSession(req, res, newUser, '/dashboard');
   } catch (err) {
     console.error('Error during registration:', err);
     res.render('register', { error: 'Erro interno ao realizar cadastro. Tente novamente.', success: null, data: inputData });
@@ -109,8 +108,7 @@ router.post('/login', redirectIfAuthenticated, async (req, res) => {
     }
 
     // Fetch user
-    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    const user = stmt.get(email.trim().toLowerCase());
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
       return res.render('login', { error: 'E-mail ou senha incorretos.', success: null, email });
@@ -157,8 +155,7 @@ router.post('/client/register', redirectIfAuthenticated, async (req, res) => {
     }
 
     // Check if email already registered
-    const checkStmt = db.prepare('SELECT id FROM users WHERE email = ?');
-    const existingUser = checkStmt.get(email.trim().toLowerCase());
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (existingUser) {
       return res.render('client/register', { error: 'Este e-mail já está cadastrado.', success: null, data: inputData });
@@ -167,23 +164,18 @@ router.post('/client/register', redirectIfAuthenticated, async (req, res) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user as client
-    const insertStmt = db.prepare('INSERT INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, ?)');
-    const result = insertStmt.run(
-      name.trim(),
-      email.trim().toLowerCase(),
-      phone.trim(),
-      hashedPassword,
-      'cliente'
-    );
-
-    createSession(req, res, {
-      id: Number(result.lastInsertRowid),
+    // Create new client user
+    const newUser = new User({
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      role: 'cliente',
-      phone: phone.trim()
-    }, '/client/dashboard');
+      phone: phone.trim(),
+      password: hashedPassword,
+      role: 'cliente'
+    });
+
+    await newUser.save();
+
+    createSession(req, res, newUser, '/client/dashboard');
   } catch (err) {
     console.error('Error during client registration:', err);
     res.render('client/register', { error: 'Erro ao realizar cadastro de cliente. Tente novamente.', success: null, data: inputData });
@@ -205,8 +197,7 @@ router.post('/client/login', redirectIfAuthenticated, async (req, res) => {
     }
 
     // Fetch user
-    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    const user = stmt.get(email.trim().toLowerCase());
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
       return res.render('client/login', { error: 'E-mail ou senha incorretos.', success: null, email });

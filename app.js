@@ -3,8 +3,8 @@ const session = require('express-session');
 const path = require('path');
 require('dotenv').config();
 
-// Initialize database schema upon server start
-const db = require('./database/db');
+// Initialize MongoDB connection
+require('./database/mongodb');
 
 const app = express();
 
@@ -110,6 +110,6 @@ app.listen(PORT, () => {
   console.log(`\n======================================================`);
   console.log(`💈 BARBERFLOW SERVER IS ONLINE!`);
   console.log(`🌐 Local URL: http://localhost:${PORT}`);
-  console.log(`📁 Database path: ${process.env.DB_PATH || 'database/database.db'}`);
+  console.log(`📁 Database: MongoDB (Vercel Compatible)`);
   console.log(`======================================================\n`);
 });
