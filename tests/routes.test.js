@@ -70,10 +70,10 @@ test('GET /login renderiza a pagina de login com botao Google', async () => {
   assert.match(res.text, /Entrar com Google/i);
 });
 
-test('GET /register redireciona para /login (Google only)', async () => {
+test('GET /register renderiza o cadastro do barbeiro', async () => {
   const res = await request(app).get('/register');
-  assert.strictEqual(res.status, 302);
-  assert.strictEqual(res.headers.location, '/login');
+  assert.strictEqual(res.status, 200);
+  assert.match(res.text, /Nome completo/i);
 });
 
 test('GET /client/login renderiza a pagina de login do cliente', async () => {
@@ -82,10 +82,10 @@ test('GET /client/login renderiza a pagina de login do cliente', async () => {
   assert.match(res.text, /Entrar com Google/i);
 });
 
-test('GET /client/register redireciona para /client/login', async () => {
+test('GET /client/register renderiza o cadastro do cliente', async () => {
   const res = await request(app).get('/client/register');
-  assert.strictEqual(res.status, 302);
-  assert.strictEqual(res.headers.location, '/client/login');
+  assert.strictEqual(res.status, 200);
+  assert.match(res.text, /Cadastro de Cliente/i);
 });
 
 // ==========================================

@@ -12,20 +12,9 @@
 (function () {
   'use strict';
 
-  // Firebase config — mesmo projeto do backend
-  const firebaseConfig = {
-    apiKey: "AIzaSyBhwupU1548YFMkRQuIUL9IVOaMM5MasYk",
-    authDomain: "barberflow-a5a19.firebaseapp.com",
-    projectId: "barberflow-a5a19",
-    storageBucket: "barberflow-a5a19.firebasestorage.app",
-    messagingSenderId: "228753502894",
-    appId: "1:228753502894:web:d5299bd910c24f214df33f",
-    measurementId: "G-4C17MEMXQK"
-  };
-
-  // Inicializa o app Firebase (compat SDK)
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+  if (!window.firebase || !firebase.apps.length) {
+    console.error('Firebase não foi inicializado. Verifique o carregamento do SDK e da configuração.');
+    return;
   }
 
   const provider = new firebase.auth.GoogleAuthProvider();
