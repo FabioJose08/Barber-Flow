@@ -5,6 +5,7 @@ const {
   findAppointments,
   findServicesByUser,
   findServiceById,
+  findConfigByUser,
   findConfigByToken
 } = require('../database/repository');
 
@@ -46,7 +47,22 @@ async function getBookedSlots(userId, dateStr) {
   });
 }
 
-// GET /book/:token - Public booking page (accessible to all; pre-fills if client logged in)
+// GET /book/barber/:barberId - Permanent public booking address.
+router.get('/book/barber/:barberId', async (req, res) => {
+  try {
+    const config = await findConfigByUser(req.params.barberId);
+    if (!config) {
+      return res.status(404).render('error', { error: 'Página de agendamento não encontrada.', user: null });
+    }
+
+    return res.redirect(`/book/${config.booking_token}`);
+  } catch (err) {
+    console.error('Error loading permanent booking page:', err);
+    return res.status(500).render('error', { error: 'Erro ao carregar página de agendamento.', user: null });
+  }
+});
+
+// GET /book/:token - Legacy public booking URL kept for existing shares.
 router.get('/book/:token', async (req, res) => {
   const { token } = req.params;
   try {

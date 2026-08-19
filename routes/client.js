@@ -34,13 +34,13 @@ router.get('/client/dashboard', requireClient, async (req, res) => {
     if (appointments.length > 0) {
       const config = await findConfigByUser(appointments[0].user_id);
       if (config) {
-        bookingUrl = `${req.protocol}://${req.get('host')}/book/${config.booking_token}`;
+        bookingUrl = `${req.protocol}://${req.get('host')}/book/barber/${config.user_id}`;
       }
     } else {
       // Fallback: get the first barber config available
       const config = await findAnyConfig();
       if (config) {
-        bookingUrl = `${req.protocol}://${req.get('host')}/book/${config.booking_token}`;
+        bookingUrl = `${req.protocol}://${req.get('host')}/book/barber/${config.user_id}`;
       }
     }
 

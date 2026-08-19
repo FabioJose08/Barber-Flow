@@ -177,6 +177,16 @@ test('GET /book/:token renderiza pagina publica de agendamento', async () => {
   assert.match(res.text, /Corte/i);
 });
 
+test('GET /book/barber/:barberId fornece endereço permanente', async () => {
+  const { barber } = await createBarber('permanent-book');
+  const token = `permanent-token-${Date.now()}`;
+  await createConfigFor(barber.id, token);
+
+  const res = await request(app).get(`/book/barber/${barber.id}`);
+  assert.strictEqual(res.status, 302);
+  assert.strictEqual(res.headers.location, `/book/${token}`);
+});
+
 test('GET /book/:token invalido retorna 404', async () => {
   const res = await request(app).get('/book/token-inexistente');
   assert.strictEqual(res.status, 404);

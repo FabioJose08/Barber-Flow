@@ -50,7 +50,7 @@ router.get('/dashboard', requireBarber, async (req, res) => {
     }
 
     // Build the dynamic booking URL
-    const bookingUrl = `${req.protocol}://${req.get('host')}/book/${config.booking_token}`;
+    const bookingUrl = `${req.protocol}://${req.get('host')}/book/barber/${userId}`;
 
     // Get all active services for preset lists
     const services = await findServicesByUser(userId);

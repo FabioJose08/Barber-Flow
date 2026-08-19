@@ -28,7 +28,7 @@ router.get('/', requireBarber, async (req, res) => {
         booking_token: token
       });
     }
-    const bookingUrl = `${req.protocol}://${req.get('host')}/book/${config.booking_token}`;
+    const bookingUrl = `${req.protocol}://${req.get('host')}/book/barber/${userId}`;
 
     const services = await findServicesByUser(userId);
     res.render('services/index', {
