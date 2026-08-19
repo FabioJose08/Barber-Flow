@@ -47,6 +47,7 @@ async function getBookedSlots(userId, dateStr) {
   });
 }
 
+
 // GET /book/barber/:barberId - Permanent public booking address.
 router.get('/book/barber/:barberId', async (req, res) => {
   try {

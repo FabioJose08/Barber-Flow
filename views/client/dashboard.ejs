@@ -30,11 +30,9 @@
   <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 18px; padding: 1.25rem;">
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
       <h2 style="font-size: 1.1rem; margin: 0; color: var(--text-main);">Meus Agendamentos</h2>
-      <% if (locals.bookingUrl) { %>
-        <a href="<%= bookingUrl %>" class="btn btn-primary btn-sm">
-          <i class="fa-solid fa-calendar-plus"></i> Agendar
-        </a>
-      <% } %>
+      <a href="/client/agendar" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-calendar-plus"></i> Agendar
+      </a>
     </div>
 
     <% if (!appointments || appointments.length === 0) { %>
@@ -42,11 +40,9 @@
         <i class="fa-solid fa-calendar-xmark" style="font-size: 3rem; color: var(--border-color); margin-bottom: 1rem;"></i>
         <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 0.5rem;">Nenhum agendamento encontrado</h3>
         <p style="font-size: 0.85rem;">Que tal agendar seu próximo atendimento?</p>
-        <% if (locals.bookingUrl) { %>
-          <a href="<%= bookingUrl %>" class="btn btn-primary" style="margin-top: 1rem;">
-            <i class="fa-solid fa-calendar-plus"></i> Agendar Agora
-          </a>
-        <% } %>
+        <a href="/client/agendar" class="btn btn-primary" style="margin-top: 1rem;">
+          <i class="fa-solid fa-calendar-plus"></i> Agendar Agora
+        </a>
       </div>
     <% } else { %>
       <div style="display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1rem;">

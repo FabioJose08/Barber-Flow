@@ -75,7 +75,10 @@ router.post('/register', async (req, res) => {
 
     const existingUser = await findUserByEmail(email);
     if (existingUser) {
-      return res.render('register', { error: 'Este e-mail já está cadastrado.' });
+      const error = existingUser.role === 'cliente'
+        ? 'Este e-mail já pertence a uma conta de cliente. Use a Área do Cliente.'
+        : 'Este e-mail já está cadastrado.';
+      return res.render('register', { error });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -108,13 +111,16 @@ router.post('/login', async (req, res) => {
       return res.render('login', { error: 'E-mail ou senha incorretos.', success: null });
     }
 
+    if (user.role !== 'barbeiro') {
+      return res.render('login', { error: 'Esta é uma conta de cliente. Use a Área do Cliente para entrar.', success: null });
+    }
+
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return res.render('login', { error: 'E-mail ou senha incorretos.', success: null });
     }
 
-    const redirectUrl = user.role === 'cliente' ? '/client/dashboard' : '/dashboard';
-    createSessionAndRedirect(req, res, user, redirectUrl);
+    createSessionAndRedirect(req, res, user, '/dashboard');
   } catch (err) {
     console.error('Error during barber login:', err);
     res.render('login', { error: 'Erro ao fazer login. Tente novamente.', success: null });
@@ -140,8 +146,8 @@ router.post('/client/register', async (req, res) => {
   try {
     const { name, email, phone, password, confirmPassword } = req.body;
 
-    if (!name || !email || !password || !confirmPassword) {
-      return res.render('client/register', { error: 'Preencha todos os campos obrigatórios.' });
+    if (!name || !email || !phone || !password || !confirmPassword) {
+      return res.render('client/register', { error: 'Preencha todos os campos obrigatórios, incluindo o WhatsApp.' });
     }
 
     if (password.length < 6) {
@@ -154,14 +160,17 @@ router.post('/client/register', async (req, res) => {
 
     const existingUser = await findUserByEmail(email);
     if (existingUser) {
-      return res.render('client/register', { error: 'Este e-mail já está cadastrado.' });
+      const error = existingUser.role === 'barbeiro'
+        ? 'Este e-mail já pertence a uma conta de barbeiro. Use a Área do Barbeiro.'
+        : 'Este e-mail já está cadastrado.';
+      return res.render('client/register', { error });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await createUser({
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      phone: phone ? phone.trim() : null,
+      phone: phone.trim(),
       password: hashedPassword,
       role: 'cliente',
       auth_provider: 'email'
@@ -188,13 +197,16 @@ router.post('/client/login', async (req, res) => {
       return res.render('client/login', { error: 'E-mail ou senha incorretos.', success: null });
     }
 
+    if (user.role !== 'cliente') {
+      return res.render('client/login', { error: 'Esta é uma conta de barbeiro. Use a Área do Barbeiro para entrar.', success: null });
+    }
+
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
       return res.render('client/login', { error: 'E-mail ou senha incorretos.', success: null });
     }
 
-    const redirectUrl = user.role === 'cliente' ? '/client/dashboard' : '/dashboard';
-    createSessionAndRedirect(req, res, user, redirectUrl);
+    createSessionAndRedirect(req, res, user, '/client/dashboard');
   } catch (err) {
     console.error('Error during client login:', err);
     res.render('client/login', { error: 'Erro ao fazer login. Tente novamente.', success: null });
@@ -203,11 +215,14 @@ router.post('/client/login', async (req, res) => {
 
 // GET /logout - Clear session
 router.get('/logout', (req, res) => {
+  const redirectUrl = req.session && req.session.user && req.session.user.role === 'cliente'
+    ? '/client/login'
+    : '/login';
   req.session.destroy((err) => {
     if (err) {
       console.error('Error destroying session:', err);
     }
-    res.redirect('/login');
+    res.redirect(redirectUrl);
   });
 });
 

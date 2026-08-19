@@ -53,6 +53,15 @@ async function findUserById(id) {
   return docToApp(snap);
 }
 
+async function findBarbers() {
+  const snap = await db.collection(COLLECTIONS.USERS)
+    .where('role', '==', 'barbeiro')
+    .get();
+
+  return docsToApp(snap.docs)
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+}
+
 // ==========================================================================
 // APPOINTMENTS
 // ==========================================================================
@@ -398,6 +407,7 @@ module.exports = {
   createUser,
   findUserByEmail,
   findUserById,
+  findBarbers,
 
   // Appointments
   createAppointment,

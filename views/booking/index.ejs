@@ -46,7 +46,7 @@
       </div>
     <% } %>
 
-    <form id="publicBookingForm" action="/book/<%= config.booking_token %>" method="POST" style="margin-top: 1.5rem;">
+    <form id="publicBookingForm" action="<%= locals.bookingPath || '/book/' + config.booking_token %>" method="POST" style="margin-top: 1.5rem;">
       
       <!-- 1. Customer Details -->
       <% if (locals.loggedClient) { %>
@@ -147,7 +147,7 @@
     const noSlotsMessage = document.getElementById('noSlotsMessage');
     const form = document.getElementById('publicBookingForm');
 
-    const bookingToken = '<%= config.booking_token %>';
+    const slotsEndpoint = '<%= locals.slotsEndpoint || '/book/' + config.booking_token + '/slots' %>';
 
     // Hook slot button clicks
     const bindSlotButtons = () => {
@@ -172,7 +172,7 @@
       slotsLoader.style.display = 'block';
       timeSlotInput.value = '';
 
-      fetch(`/book/${bookingToken}/slots?date=${date}`)
+      fetch(`${slotsEndpoint}?date=${date}`)
         .then(res => res.json())
         .then(data => {
           slotsLoader.style.display = 'none';

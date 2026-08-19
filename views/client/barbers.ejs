@@ -1,0 +1,33 @@
+<%- include('../partials/header') %>
+
+<div class="client-page">
+  <div class="client-page-header">
+    <div>
+      <p class="client-eyebrow">AGENDAMENTO ONLINE</p>
+      <h1>Escolha sua barbearia</h1>
+      <p>Selecione onde quer agendar. Seus dados de cliente já estão protegidos na sua sessão.</p>
+    </div>
+    <a href="/client/dashboard" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Meus agendamentos</a>
+  </div>
+
+  <% if (!entries.length) { %>
+    <div class="card empty-state">
+      <i class="fa-solid fa-scissors"></i>
+      <h3>Nenhuma barbearia disponível</h3>
+      <p>Volte em instantes ou fale com a barbearia.</p>
+    </div>
+  <% } else { %>
+    <div class="barber-grid">
+      <% entries.forEach(({ barber, config }) => { %>
+        <article class="card barber-choice-card">
+          <div class="barber-choice-icon"><i class="fa-solid fa-scissors"></i></div>
+          <h2><%= config.shop_name || barber.name %></h2>
+          <p><i class="fa-regular fa-clock"></i> <%= config.open_time %> às <%= config.close_time %></p>
+          <a href="/client/agendar/<%= barber.id %>" class="btn btn-primary">Agendar horário <i class="fa-solid fa-arrow-right"></i></a>
+        </article>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>
