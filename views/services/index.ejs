@@ -41,7 +41,7 @@
     <!-- Add Service Form -->
     <form action="/services" method="POST" style="margin-bottom: 2rem; background: var(--bg-tertiary); padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
       <h4 style="margin-bottom: 1rem; color: var(--gold-primary); font-family: 'Cinzel';"><i class="fa-solid fa-plus"></i> Novo Serviço</h4>
-      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem; align-items: flex-end;">
+      <div class="service-form-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem; align-items: flex-end;">
         <div class="form-group" style="margin-bottom: 0;">
           <label for="name" class="form-label">Nome do Serviço *</label>
           <input type="text" id="name" name="name" class="form-control" placeholder="Ex: Corte Navalhado" required autocomplete="off">
@@ -120,7 +120,7 @@
       <h4 style="margin-bottom: 0.5rem; color: var(--gold-primary); font-family: 'Cinzel';"><i class="fa-solid fa-globe"></i> Página de Agendamentos</h4>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Use este link nas redes sociais (Instagram/WhatsApp) para os clientes marcarem direto:</p>
       
-      <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <div class="booking-link-input-group" style="display: flex; gap: 0.5rem; align-items: center;">
         <input type="text" id="servicesBookingUrlInput" class="form-control" value="<%= bookingUrl %>" readonly style="background: var(--bg-primary); border-color: var(--border-color); color: var(--gold-primary); font-weight: 500; font-size: 0.85rem;">
         <button type="button" class="btn btn-primary btn-sm" id="copyServicesBookingUrlBtn" style="white-space: nowrap; padding: 0.65rem 1rem;">
           <i class="fa-solid fa-copy"></i> Copiar
@@ -137,7 +137,7 @@
       </div>
 
       <!-- Start and End Time -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="service-config-times" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
         <div class="form-group">
           <label for="open_time" class="form-label">Abertura *</label>
           <input type="time" id="open_time" name="open_time" class="form-control" value="<%= config.open_time %>" required>

@@ -64,10 +64,11 @@ async function createConfigFor(userId, token) {
 // TESTES DE ROTAS PÚBLICAS
 // ==========================================
 
-test('GET /login renderiza a pagina de login com botao Google', async () => {
+test('GET /login renderiza a pagina de login por e-mail', async () => {
   const res = await request(app).get('/login');
   assert.strictEqual(res.status, 200);
-  assert.match(res.text, /Entrar com Google/i);
+  assert.match(res.text, /E-mail/i);
+  assert.doesNotMatch(res.text, /Entrar com Google/i);
 });
 
 test('GET /register renderiza o cadastro do barbeiro', async () => {
@@ -79,7 +80,8 @@ test('GET /register renderiza o cadastro do barbeiro', async () => {
 test('GET /client/login renderiza a pagina de login do cliente', async () => {
   const res = await request(app).get('/client/login');
   assert.strictEqual(res.status, 200);
-  assert.match(res.text, /Entrar com Google/i);
+  assert.match(res.text, /E-mail/i);
+  assert.doesNotMatch(res.text, /Entrar com Google/i);
 });
 
 test('GET /client/register renderiza o cadastro do cliente', async () => {
@@ -92,24 +94,20 @@ test('GET /client/register renderiza o cadastro do cliente', async () => {
 // TESTES DE AUTENTICAÇÃO GOOGLE
 // ==========================================
 
-test('POST /auth/google sem token retorna erro 400', async () => {
+test('POST /auth/google nao esta disponivel', async () => {
   const res = await request(app)
     .post('/auth/google')
     .send({});
 
-  assert.strictEqual(res.status, 400);
-  assert.strictEqual(res.body.success, false);
-  assert.match(res.body.error, /token/i);
+  assert.strictEqual(res.status, 404);
 });
 
-test('POST /client/auth/google sem token retorna erro 400', async () => {
+test('POST /client/auth/google nao esta disponivel', async () => {
   const res = await request(app)
     .post('/client/auth/google')
     .send({});
 
-  assert.strictEqual(res.status, 400);
-  assert.strictEqual(res.body.success, false);
-  assert.match(res.body.error, /token/i);
+  assert.strictEqual(res.status, 404);
 });
 
 // ==========================================

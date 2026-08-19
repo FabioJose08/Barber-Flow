@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const { createUser, findUserByEmail } = require('../database/repository');
-const { auth } = require('../database/firebase');
 const { redirectIfAuthenticated } = require('../middleware/auth');
 
 /**
@@ -28,55 +27,6 @@ function createSessionAndRedirect(req, res, user, redirectUrl) {
 
     res.redirect(redirectUrl);
   });
-}
-
-function createSessionJSON(req, res, user, redirectUrl) {
-  req.session.regenerate((err) => {
-    if (err) {
-      console.error('Error regenerating session:', err);
-      return res.status(500).json({ success: false, error: 'Erro interno de autenticação.' });
-    }
-
-    req.session.user = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role || 'cliente',
-      phone: user.phone || null
-    };
-
-    res.json({ success: true, redirectUrl });
-  });
-}
-
-async function authenticateWithGoogle(req, res, role) {
-  const { idToken } = req.body;
-  if (!idToken) {
-    return res.status(400).json({ success: false, error: 'Token não fornecido.' });
-  }
-  if (!auth) {
-    return res.status(503).json({ success: false, error: 'Firebase Admin não está configurado no servidor.' });
-  }
-
-  const decodedToken = await auth.verifyIdToken(idToken);
-  const email = decodedToken.email;
-  if (!email) {
-    return res.status(400).json({ success: false, error: 'Conta Google sem e-mail válido.' });
-  }
-
-  let user = await findUserByEmail(email);
-  if (!user) {
-    user = await createUser({
-      name: (decodedToken.name || email.split('@')[0]).trim(),
-      email: email.trim().toLowerCase(),
-      password: null,
-      role,
-      auth_provider: 'google',
-      google_uid: decodedToken.uid
-    });
-  }
-
-  return createSessionJSON(req, res, user, user.role === 'cliente' ? '/client/dashboard' : '/dashboard');
 }
 
 // GET / - Redirect to correct dashboard based on role if logged in, otherwise to login
@@ -171,15 +121,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/auth/google', async (req, res) => {
-  try {
-    await authenticateWithGoogle(req, res, 'barbeiro');
-  } catch (err) {
-    console.error('Error during Google Sign-In (barber):', err);
-    res.status(500).json({ success: false, error: 'Erro ao autenticar com Google.' });
-  }
-});
-
 // ==========================================
 // CLIENT AUTHENTICATION ROUTES
 // ==========================================
@@ -257,15 +198,6 @@ router.post('/client/login', async (req, res) => {
   } catch (err) {
     console.error('Error during client login:', err);
     res.render('client/login', { error: 'Erro ao fazer login. Tente novamente.', success: null });
-  }
-});
-
-router.post('/client/auth/google', async (req, res) => {
-  try {
-    await authenticateWithGoogle(req, res, 'cliente');
-  } catch (err) {
-    console.error('Error during Google Sign-In (client):', err);
-    res.status(500).json({ success: false, error: 'Erro ao autenticar com Google.' });
   }
 });
 
